@@ -162,6 +162,8 @@ public class Downloader : IDisposable
         {
             if (ShouldStop)
                 return;
+            if (file.EndsWith(SkipRecordFileName))
+                continue;
 
             var infoContent = File.ReadAllText(file);
             InfoParseResult? infoParseResult = await ParseAsync(infoContent);

@@ -44,6 +44,8 @@ partial class Form1
         btnOpenFirstUserFolder = new Button();
         chbDownloadImage = new CheckBox();
         btnMarkDeletedFilesNoRedownload = new Button();
+        btnStop = new Button();
+        lblDownloadingCounter = new Label();
         SuspendLayout();
         // 
         // txtUsername
@@ -209,11 +211,35 @@ partial class Form1
         btnMarkDeletedFilesNoRedownload.UseVisualStyleBackColor = true;
         btnMarkDeletedFilesNoRedownload.Click += btnMarkDeletedFilesNoRedownload_ClickAsync;
         // 
+        // btnStop
+        // 
+        btnStop.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnStop.Location = new Point(996, 114);
+        btnStop.Name = "btnStop";
+        btnStop.Size = new Size(272, 72);
+        btnStop.TabIndex = 16;
+        btnStop.Text = "STOP";
+        btnStop.UseVisualStyleBackColor = true;
+        btnStop.Click += btnStop_Click;
+        // 
+        // lblDownloadingCounter
+        // 
+        lblDownloadingCounter.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+        lblDownloadingCounter.AutoSize = true;
+        lblDownloadingCounter.Location = new Point(1483, 750);
+        lblDownloadingCounter.Name = "lblDownloadingCounter";
+        lblDownloadingCounter.Size = new Size(63, 24);
+        lblDownloadingCounter.TabIndex = 17;
+        lblDownloadingCounter.Text = "label3";
+        lblDownloadingCounter.TextAlign = ContentAlignment.MiddleRight;
+        // 
         // Form1
         // 
         AutoScaleDimensions = new SizeF(11F, 24F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1558, 783);
+        Controls.Add(lblDownloadingCounter);
+        Controls.Add(btnStop);
         Controls.Add(btnMarkDeletedFilesNoRedownload);
         Controls.Add(chbDownloadImage);
         Controls.Add(btnOpenFirstUserFolder);
@@ -254,4 +280,6 @@ partial class Form1
     private Button btnOpenFirstUserFolder;
     private CheckBox chbDownloadImage;
     private Button btnMarkDeletedFilesNoRedownload;
+    private Button btnStop;
+    private Label lblDownloadingCounter;
 }

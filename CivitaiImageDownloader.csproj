@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <PackageReference Include="log4net" Version="2.0.15" />
+    <PackageReference Include="NReco.VideoInfo" Version="1.2.1" />
   </ItemGroup>
 
 </Project>

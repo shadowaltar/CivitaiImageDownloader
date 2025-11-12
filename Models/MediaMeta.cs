@@ -13,6 +13,8 @@ public record MediaMeta
         }
     }
 
+    public string WebpUrl { get; set; }
+
     public string NsfwLevel { get; set; } = "None";
 
     public int Id { get; set; }

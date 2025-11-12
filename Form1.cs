@@ -10,6 +10,8 @@ public partial class Form1 : Form
     private const string DefaultTargetFolder = @"D:\AI\CivitAI\";
     private readonly List<DownloadResult> _downloadResults = [];
 
+    private bool _stopping = false;
+
     public Form1()
     {
         InitializeComponent();
@@ -19,7 +21,10 @@ public partial class Form1 : Form
 
     private async void btnDownload_Click(object sender, EventArgs e)
     {
+        _stopping = false;
+
         Invoke(listBoxMessages.Items.Clear);
+        UpdateDownloadingCounter(-1);
         _downloadResults.Clear();
         bool isGood = CreateDownloadParameters(out var targetFolder, out var userNames, out var nsfwLevels, out var mediaType);
         if (!isGood)
@@ -27,13 +32,23 @@ public partial class Form1 : Form
             return;
         }
 
+        Downloader? dl = null;
         foreach (var un in userNames)
         {
-            using var dl = new Downloader(targetFolder, un.Trim(), nsfwLevels, mediaType);
+            if (_stopping && dl != null)
+            {
+                dl.ShouldStop = true;
+                AddMessage("Download stopped.");
+                break;
+            }
+            dl = new Downloader(targetFolder, un.Trim(), nsfwLevels, mediaType);
             dl.RaiseMessage += AddMessage;
+            dl.UpdateDownloadingCounter += UpdateDownloadingCounter;
             var result = await dl.Run();
             _downloadResults.Add(result);
             dl.RaiseMessage -= AddMessage;
+            dl.UpdateDownloadingCounter -= UpdateDownloadingCounter;
+            dl.Dispose();
         }
 
         // print summary
@@ -203,6 +218,21 @@ public partial class Form1 : Form
         });
     }
 
+    private void UpdateDownloadingCounter(int downloadingCount)
+    {
+        Invoke(() =>
+        {
+            if (downloadingCount == -1)
+            {
+                lblDownloadingCounter.Text = "Not downloading anything.";
+            }
+            else
+            {
+                lblDownloadingCounter.Text = "Downloading: " + downloadingCount;
+            }
+        });
+    }
+
     private static List<string> Format(List<DownloadResult> results)
     {
         int[] maxColLen = new int[5] { "UserName".Length, "Success".Length, "Target".Length, "Failed".Length, "Skipped".Length };
@@ -221,19 +251,26 @@ public partial class Form1 : Form
         }
 
         // create formatting strings, add all sizes:
+        var verticalLineLength = 2 + maxColLen.Sum() + maxColLen.Length - 1;
         List<string> lines = [];
-        lines.Add(new('-', 2 + maxColLen.Sum()));
+        lines.Add(new('-', verticalLineLength));
         foreach (var r in results)
         {
             lines.Add(string.Format(formatString, r.UserName, r.ActualDownloadCount, r.DownloadTargetCount, r.FailedUrls.Count, r.SkippedCount));
+            lines.Add(new('-', verticalLineLength));
         }
         lines.Add(string.Format(formatString, "UserName", "Success", "Target", "Failed", "Skipped"));
-        lines.Add(new('-', 2 + maxColLen.Sum()));
+        lines.Add(new('-', verticalLineLength));
         return lines;
     }
 
     private static int CountDigits(int n)
     {
         return (int)Math.Floor(Math.Log10(n) + 1);
+    }
+
+    private void btnStop_Click(object sender, EventArgs e)
+    {
+        _stopping = true;
     }
 }

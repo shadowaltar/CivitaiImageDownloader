@@ -1,3 +1,5 @@
+using NReco.VideoInfo;
+
 namespace CivitaiImageDownloader;
 
 internal static class Program

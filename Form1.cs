@@ -1,7 +1,7 @@
 using System.Diagnostics;
-using System.Net;
 
 using CivitaiImageDownloader.Models;
+using CivitaiImageDownloader.Util;
 
 namespace CivitaiImageDownloader;
 
@@ -17,6 +17,8 @@ public partial class Form1 : Form
         InitializeComponent();
 
         txtTargetFolder.Text = DefaultTargetFolder;
+        cbbVideoDownloadMode.Items.AddRange(Enum.GetValues<VideoDownloadMode>().OfType<Object>().ToArray());
+        cbbVideoDownloadMode.SelectedItem = VideoDownloadMode.Auto;
     }
 
     private async void btnDownload_Click(object sender, EventArgs e)
@@ -26,14 +28,14 @@ public partial class Form1 : Form
         Invoke(listBoxMessages.Items.Clear);
         UpdateDownloadingCounter(-1);
         _downloadResults.Clear();
-        bool isGood = CreateDownloadParameters(out var targetFolder, out var userNames, out var nsfwLevels, out var mediaType);
-        if (!isGood)
+        var parameters = CreateDownloadParameters();
+        if (parameters == null)
         {
             return;
         }
 
         Downloader? dl = null;
-        foreach (var un in userNames)
+        foreach (var un in parameters.UserNames)
         {
             if (_stopping && dl != null)
             {
@@ -41,7 +43,8 @@ public partial class Form1 : Form
                 AddMessage("Download stopped.");
                 break;
             }
-            dl = new Downloader(targetFolder, un.Trim(), nsfwLevels, mediaType);
+            var p = parameters with { UserName = un };
+            dl = new Downloader(p);
             dl.RaiseMessage += AddMessage;
             dl.UpdateDownloadingCounter += UpdateDownloadingCounter;
             var result = await dl.Run();
@@ -90,7 +93,25 @@ public partial class Form1 : Form
         if (listBoxMessages.SelectedIndex != -1)
         {
             string selectedItemText = listBoxMessages.SelectedItem?.ToString() ?? "";
-            Clipboard.SetText(selectedItemText);
+            if (selectedItemText.Contains("https:"))
+            {
+                var i = selectedItemText.IndexOf("https");
+                if (selectedItemText.Contains("Failed"))
+                {
+                    var txt = selectedItemText.Substring(i);
+                    Clipboard.SetText(txt);
+                }
+                else
+                {
+                    var j = selectedItemText.IndexOf(" to ");
+                    var txt = selectedItemText.Substring(i, j - i);
+                    Clipboard.SetText(txt);
+                }
+            }
+            else
+            {
+                Clipboard.SetText(selectedItemText);
+            }
         }
     }
 
@@ -125,23 +146,35 @@ public partial class Form1 : Form
             return;
         }
 
-        Process.Start("explorer.exe", Path.Combine(targetFolder, un));
+        var folder = FolderHelper.GetFolder(txtTargetFolder.Text, uns[0]);
+        if (!string.IsNullOrEmpty(folder))
+        {
+            AddMessage("Use folder: " + folder);
+        }
+        else
+        {
+            AddMessage("Folder not found: " + folder);
+            return;
+        }
+
+        Process.Start("explorer.exe", folder);
     }
 
     private async void btnMarkDeletedFilesNoRedownload_ClickAsync(object sender, EventArgs e)
     {
         Invoke(listBoxMessages.Items.Clear);
         _downloadResults.Clear();
-        bool isGood = CreateDownloadParameters(out var targetFolder, out var userNames, out var nsfwLevels, out var mediaType);
-        if (!isGood)
+        var parameters = CreateDownloadParameters();
+        if (parameters == null)
         {
             return;
         }
 
         var results = new Dictionary<string, List<ExistenceResult>>();
-        foreach (var un in userNames)
+        foreach (var un in parameters.UserNames)
         {
-            using var dl = new Downloader(targetFolder, un.Trim(), nsfwLevels, mediaType);
+            var p = parameters with { UserName = un };
+            using var dl = new Downloader(p);
             dl.RaiseMessage += AddMessage;
             var result = await dl.MarkNonExistFiles();
             results[un] = result;
@@ -153,24 +186,22 @@ public partial class Form1 : Form
         }
     }
 
-    private bool CreateDownloadParameters(out string targetFolder, out string[] userNames, out List<string> nsfwLevels, out MediaType mediaType)
+    private DownloadParameters? CreateDownloadParameters()
     {
-        targetFolder = "";
-        userNames = [];
-        nsfwLevels = [];
-        mediaType = MediaType.None;
 
-        targetFolder = txtTargetFolder.Text;
+        var targetFolder = txtTargetFolder.Text;
         if (!Directory.Exists(targetFolder))
         {
             MessageBox.Show(this, "Invalid target folder.");
-            return false;
+            return null;
         }
 
-        var un = txtUsername.Text;
-        if (un == null) { return false; }
+        var userNameConcat = txtUsername.Text.Trim();
+        if (userNameConcat == null) { return null; }
 
-        userNames = un.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        List<string> userNames = userNameConcat.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(u => u.Trim()).Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+        List<string> nsfwLevels = [];
         if (chbNsfw.Checked)
         {
             nsfwLevels.Add("X");
@@ -190,9 +221,10 @@ public partial class Form1 : Form
         if (nsfwLevels.Count == 0)
         {
             AddMessage("Must select at least one NSFW level.");
-            return false;
+            return null;
         }
 
+        var mediaType = MediaType.None;
         if (chbDownloadImage.Checked)
         {
             mediaType |= MediaType.Image;
@@ -204,10 +236,11 @@ public partial class Form1 : Form
         if (mediaType == MediaType.None)
         {
             AddMessage("Must select at least one media type.");
-            return false;
+            return null;
         }
 
-        return true;
+        return new DownloadParameters(targetFolder, "", userNames, nsfwLevels, mediaType,
+            chbAlwaysDownloadLatest.Checked, (VideoDownloadMode)cbbVideoDownloadMode.SelectedItem!);
     }
 
     private void AddMessage(string message)
@@ -272,5 +305,56 @@ public partial class Form1 : Form
     private void btnStop_Click(object sender, EventArgs e)
     {
         _stopping = true;
+    }
+
+    private async void btnCompressVideo_Click(object sender, EventArgs e)
+    {
+        _stopping = false;
+
+        Invoke(listBoxMessages.Items.Clear);
+        UpdateDownloadingCounter(-1);
+        _downloadResults.Clear();
+        var parameters = CreateDownloadParameters();
+        if (parameters == null)
+        {
+            return;
+        }
+
+        VideoCompressor? vc = null;
+        foreach (var un in parameters.UserNames)
+        {
+            if (_stopping && vc != null)
+            {
+                vc.ShouldStop = true;
+                AddMessage("Video compression stopped.");
+                break;
+            }
+            vc = new VideoCompressor(parameters.TargetFolder, un);
+            vc.RaiseMessage += AddMessage;
+            await vc.Run();
+            vc.RaiseMessage -= AddMessage;
+            vc.Dispose();
+        }
+
+        // print summary
+        AddMessage("====SUMMARY====");
+        foreach (var r in Format(_downloadResults))
+        {
+            AddMessage(r);
+        }
+        AddMessage("====SUMMARY====");
+    }
+
+    private void btnCopyAllSubdirNames_Click(object sender, EventArgs e)
+    {
+        var rootFolder = txtTargetFolder.Text;
+        if (!Directory.Exists(rootFolder))
+        {
+            MessageBox.Show(this, "Invalid target folder.");
+            return;
+        }
+        var allDirs = Directory.GetDirectories(rootFolder, "*", SearchOption.AllDirectories);
+        var dirNames = allDirs.Select(d => Path.GetFileName(d)).Where(d => !d.StartsWith('!')).Distinct().ToList();
+        Clipboard.SetText(string.Join(",", dirNames));
     }
 }

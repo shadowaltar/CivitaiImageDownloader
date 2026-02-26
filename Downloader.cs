@@ -1,12 +1,10 @@
-using System.Text.Json;
-using System.Text.Json.Nodes;
-
 using CivitaiImageDownloader.Models;
 using CivitaiImageDownloader.Util;
-
 using Common;
-
 using NReco.VideoInfo;
+using System.IO;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace CivitaiImageDownloader;
 
@@ -18,9 +16,11 @@ public class Downloader : IDisposable
     private readonly string _userName;
     private readonly List<string> _nsfwLevels;
     private readonly MediaType _mediaType;
-    private HttpClient httpClient = new()
+    private readonly bool _isAlwaysLatestMetaInfo;
+    private readonly VideoDownloadMode _videoDownloadMode;
+    private readonly HttpClient httpClient = new()
     {
-        Timeout = TimeSpan.FromSeconds(60)
+        Timeout = TimeSpan.FromSeconds(15)
     };
     private CancellationTokenSource _cts = new CancellationTokenSource();
     private FFProbe _ffProbe = new FFProbe();
@@ -34,22 +34,36 @@ public class Downloader : IDisposable
 
     public bool ShouldStop { get; set; }
 
-    public bool ParallelMode { get; set; } = true;
+    public bool ParallelMode { get; set; } = false;
 
-    public Downloader(string rootFolder, string userName, List<string> nsfwLevels, MediaType mediaType)
+    public Downloader(DownloadParameters parameters)
     {
-        _rootFolder = rootFolder;
-        _userName = userName;
-        _nsfwLevels = nsfwLevels;
-        _mediaType = mediaType;
+        _rootFolder = parameters.TargetFolder;
+        _userName = parameters.UserName;
+        _nsfwLevels = parameters.NsfwLevels;
+        _mediaType = parameters.MediaType;
+        _isAlwaysLatestMetaInfo = parameters.IsAlwaysLatestMetaInfo;
+        _videoDownloadMode = parameters.VideoDownloadMode;
     }
 
     public async Task<DownloadResult> Run()
     {
         var allMetas = new List<MediaMeta>();
-        var folder = Path.Combine(_rootFolder, _userName);
-        Directory.CreateDirectory(folder);
+
+        var folder = FolderHelper.GetFolder(_rootFolder, _userName);
+        if (!string.IsNullOrEmpty(folder))
+        {
+            RaiseMessage?.Invoke("Use folder: " + folder);
+        }
+        else
+        {
+            folder = Path.Combine(_rootFolder, _userName);
+            RaiseMessage?.Invoke("Folder not found, creating: " + folder);
+            Directory.CreateDirectory(Path.Combine(_rootFolder, _userName));
+        }
+
         RenameTxtToJson(folder);
+
         await GetAllMetaInfos(allMetas, folder);
         var result = await DownloadMedia(allMetas, folder);
 
@@ -57,21 +71,21 @@ public class Downloader : IDisposable
         return result;
     }
 
-    private void RenameTxtToJson(string folder)
-    {
-        var files = Directory.GetFiles(folder, "*.txt");
-        foreach (var file in files)
-        {
-            var fi = new FileInfo(file);
-            fi.MoveTo(fi.FullName.Replace(".txt", ".json"));
-        }
-    }
-
     public async Task<List<ExistenceResult>> MarkNonExistFiles()
     {
         var allMetas = new List<MediaMeta>();
-        var folder = Path.Combine(_rootFolder, _userName);
-        Directory.CreateDirectory(folder);
+        var folder = FolderHelper.GetFolder(_rootFolder, _userName);
+        if (!string.IsNullOrEmpty(folder))
+        {
+            RaiseMessage?.Invoke("Use folder: " + folder);
+        }
+        else
+        {
+            folder = Path.Combine(_rootFolder, _userName);
+            RaiseMessage?.Invoke("Folder not found, creating: " + folder);
+            Directory.CreateDirectory(Path.Combine(_rootFolder, _userName));
+        }
+        RenameTxtToJson(folder);
         var existingInfoFiles = Directory.GetFiles(folder, "*.json");
         await GetLocalMetaInfo(allMetas, existingInfoFiles);
 
@@ -90,7 +104,7 @@ public class Downloader : IDisposable
             var url = meta.Url;
             var fileName = url.Split('/').Last();
             var path = meta.GetExpectedFilePath(folder);
-            var existence = new ExistenceResult(url, meta.ExpectedFileName, path, File.Exists(path));
+            var existence = new ExistenceResult(url, meta.ExpectedFileName, path, File.Exists(path) || File.Exists(path.GetAlternativeJpegPath()));
             lock (results)
             {
                 results.Add(existence);
@@ -99,12 +113,29 @@ public class Downloader : IDisposable
         }
     }
 
+    private void RenameTxtToJson(string folder)
+    {
+        var files = Directory.GetFiles(folder, "*.txt");
+        foreach (var file in files)
+        {
+            var fi = new FileInfo(file);
+            try
+            {
+                fi.MoveTo(fi.FullName.Replace(".txt", ".json"));
+            }
+            catch (Exception ex)
+            {
+                RaiseMessage?.Invoke($"Failed to rename file {fi.FullName}: {ex.Message}");
+            }
+        }
+    }
+
     private async Task GetAllMetaInfos(List<MediaMeta> allMetas, string folder)
     {
         // do not seek from website if info files exists
         var existingInfoFiles = Directory.GetFiles(folder, "*.json")
             .Where(f => !f.Contains(SkipRecordFileName)).ToArray();
-        if (existingInfoFiles.Length != 0)
+        if (!_isAlwaysLatestMetaInfo && existingInfoFiles.Length != 0)
         {
             await GetLocalMetaInfo(allMetas, existingInfoFiles);
             return;
@@ -134,7 +165,7 @@ public class Downloader : IDisposable
                 if (jObj != null)
                 {
                     jObj?.Add(new KeyValuePair<string, JsonNode?>("url", infoUrl));
-                    File.WriteAllText(Path.Combine(folder, $"{count:D4}.txt"), jObj?.ToJsonString());
+                    File.WriteAllText(Path.Combine(folder, $"{count:D4}.json"), jObj?.ToJsonString());
                 }
                 count++;
 
@@ -230,36 +261,34 @@ public class Downloader : IDisposable
                 var path = meta.GetExpectedFilePath(folder);
                 try
                 {
-                    if (File.Exists(path))
+                    if (File.Exists(path) || File.Exists(path.GetAlternativeJpegPath()))
                     {
                         meta.IsExists = true;
-                        return false;
+                        continue;
                     }
                     if (meta.IsImage && !_mediaType.HasFlag(MediaType.Image))
                     {
                         Interlocked.Increment(ref _skippedCount);
-                        return false;
+                        continue;
                     }
                     if (meta.IsVideo && !_mediaType.HasFlag(MediaType.Video))
                     {
                         Interlocked.Increment(ref _skippedCount);
-                        return false;
+                        continue;
                     }
 
-                    Thread.Sleep(100);
+                    Thread.Sleep(150);
 
-                    await SaveToFile(url, path, i);
+                    var jpegPath = path.GetPreferredJpegPath();
+                    await SaveToFile(url, jpegPath, i, totalCount, actualDownloadedCount);
                     shallRetry = false;
 
-                    // detect webp/yuv format
-                    MediaInfo videoInfo = _ffProbe.GetMediaInfo(path);
-                    MediaInfo.StreamInfo? stream = videoInfo.Streams.FirstOrDefault(stream => stream.CodecType.ToLower() == "video");
-                    if (stream?.CodecName == "webp" && meta.WebpUrl != "")
+                    // detect and try to convert to webp if it is yuv
+                    var isConverted = await TryConvertFromWebpOrYuv(jpegPath, url, meta.WebpUrl, i, totalCount, actualDownloadedCount);
+                    if (!isConverted && meta.IsImage)
                     {
-                        // redownload with transcode and non-original params
-                        File.Delete(path);
-                        await SaveToFile(meta.WebpUrl, path, i);
-                        RaiseMessage?.Invoke($"[{i}/{totalCount}] IsTranscoded from WEBP: {url} to {path}");
+                        // save as jpg
+                        await CompressJpeg(jpegPath, url);
                     }
                 }
                 catch (Exception e1)
@@ -269,35 +298,64 @@ public class Downloader : IDisposable
                     shallRetry = true;
                     if (File.Exists(path))
                     {
-                        File.Delete(path);
+                        try { File.Delete(path); }
+                        catch
+                        {
+                            RaiseMessage?.Invoke($"[{e1.GetType().Name}] Failed to delete media: {path}");
+                        }
                     }
                 }
             }
-            while (retriedCount < 10 && shallRetry);
+            while (retriedCount < 1 && shallRetry);
             return true;
         }
+    }
 
-        async Task SaveToFile(string url, string path, int i)
+    private async Task<bool> TryConvertFromWebpOrYuv(string path, string url, string webpUrl, int i, int totalCount, int actualDownloadedCount)
+    {
+        // detect webp/yuv format
+        MediaInfo videoInfo = _ffProbe.GetMediaInfo(path);
+        MediaInfo.StreamInfo? stream = videoInfo.Streams.FirstOrDefault(stream => stream.CodecType.ToLower() == "video");
+        if (stream?.CodecName == "webp" && webpUrl != "")
         {
-            var startTime = DateTime.Now;
-            HttpResponseMessage response = await httpClient.GetAsync(url);
-            response.EnsureSuccessStatusCode();
-            var bytes = await response.Content.ReadAsByteArrayAsync();
-            using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
-            fs.Write(bytes, 0, bytes.Length);
+            // redownload with transcode and non-original params
+            File.Delete(path);
+            await SaveToFile(webpUrl, path, i, totalCount, actualDownloadedCount);
+            RaiseMessage?.Invoke($"[{i}/{totalCount}] IsTranscoded from WEBP: {url} to {path}");
+            return true;
+        }
+        return false;
+    }
 
-            long length = new FileInfo(path).Length;
-            var endTime = DateTime.Now;
-            var elapsed = (endTime - startTime).TotalSeconds;
-            if (length == 0)
-            {
-                RaiseMessage?.Invoke($"[{elapsed:F4}] [{i}/{totalCount}] [{length}b] [FAILED] Download: {url} to {path}");
-            }
-            else
-            {
-                RaiseMessage?.Invoke($"[{elapsed:F4}] [{i}/{totalCount}] [{length}b] Downloaded: {url} to {path}");
-                Interlocked.Increment(ref actualDownloadedCount);
-            }
+    private async Task CompressJpeg(string filePath, string url)
+    {
+        using var img = NetVips.Image.NewFromFile(filePath);
+        var compressedFile = Path.Combine(Path.GetDirectoryName(filePath)!, "compressed_" + Path.GetFileName(filePath));
+        img.Jpegsave(compressedFile, q: 80);
+        File.Delete(filePath);
+        File.Move(compressedFile, filePath);
+    }
+
+    private async Task SaveToFile(string url, string path, int i, int totalCount, int actualDownloadedCount)
+    {
+        var startTime = DateTime.Now;
+        HttpResponseMessage response = await httpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
+        fs.Write(bytes, 0, bytes.Length);
+
+        long length = new FileInfo(path).Length;
+        var endTime = DateTime.Now;
+        var elapsed = (endTime - startTime).TotalSeconds;
+        if (length == 0)
+        {
+            RaiseMessage?.Invoke($"[{elapsed:F4}] [{i}/{totalCount}] [{length}b] [FAILED] Download: {url} to {path}");
+        }
+        else
+        {
+            RaiseMessage?.Invoke($"[{elapsed:F4}] [{i}/{totalCount}] [{length}b] Downloaded: {url} to {path}");
+            Interlocked.Increment(ref actualDownloadedCount);
         }
     }
 

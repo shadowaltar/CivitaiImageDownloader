@@ -46,13 +46,18 @@ partial class Form1
         btnMarkDeletedFilesNoRedownload = new Button();
         btnStop = new Button();
         lblDownloadingCounter = new Label();
+        btnCompressVideo = new Button();
+        chbAlwaysDownloadLatest = new CheckBox();
+        cbbVideoDownloadMode = new ComboBox();
+        label3 = new Label();
+        btnCopyAllSubdirNames = new Button();
         SuspendLayout();
         // 
         // txtUsername
         // 
         txtUsername.Location = new Point(120, 12);
         txtUsername.Name = "txtUsername";
-        txtUsername.Size = new Size(799, 30);
+        txtUsername.Size = new Size(774, 30);
         txtUsername.TabIndex = 0;
         // 
         // label1
@@ -98,7 +103,7 @@ partial class Form1
         // 
         label2.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         label2.AutoSize = true;
-        label2.Location = new Point(925, 14);
+        label2.Location = new Point(900, 15);
         label2.Name = "label2";
         label2.Size = new Size(155, 24);
         label2.TabIndex = 5;
@@ -214,9 +219,9 @@ partial class Form1
         // btnStop
         // 
         btnStop.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnStop.Location = new Point(996, 114);
+        btnStop.Location = new Point(955, 114);
         btnStop.Name = "btnStop";
-        btnStop.Size = new Size(272, 72);
+        btnStop.Size = new Size(152, 72);
         btnStop.TabIndex = 16;
         btnStop.Text = "STOP";
         btnStop.UseVisualStyleBackColor = true;
@@ -233,11 +238,64 @@ partial class Form1
         lblDownloadingCounter.Text = "label3";
         lblDownloadingCounter.TextAlign = ContentAlignment.MiddleRight;
         // 
+        // btnCompressVideo
+        // 
+        btnCompressVideo.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        btnCompressVideo.Location = new Point(1113, 114);
+        btnCompressVideo.Name = "btnCompressVideo";
+        btnCompressVideo.Size = new Size(155, 72);
+        btnCompressVideo.TabIndex = 18;
+        btnCompressVideo.Text = "Compress Video";
+        btnCompressVideo.UseVisualStyleBackColor = true;
+        btnCompressVideo.Click += btnCompressVideo_Click;
+        // 
+        // chbAlwaysDownloadLatest
+        // 
+        chbAlwaysDownloadLatest.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        chbAlwaysDownloadLatest.AutoSize = true;
+        chbAlwaysDownloadLatest.Location = new Point(1246, 66);
+        chbAlwaysDownloadLatest.Name = "chbAlwaysDownloadLatest";
+        chbAlwaysDownloadLatest.Size = new Size(300, 28);
+        chbAlwaysDownloadLatest.TabIndex = 6;
+        chbAlwaysDownloadLatest.Text = "Always Download From CivitAI";
+        chbAlwaysDownloadLatest.UseVisualStyleBackColor = true;
+        // 
+        // cbbVideoDownloadMode
+        // 
+        cbbVideoDownloadMode.FormattingEnabled = true;
+        cbbVideoDownloadMode.Location = new Point(1058, 62);
+        cbbVideoDownloadMode.Name = "cbbVideoDownloadMode";
+        cbbVideoDownloadMode.Size = new Size(182, 32);
+        cbbVideoDownloadMode.TabIndex = 19;
+        // 
+        // label3
+        // 
+        label3.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        label3.AutoSize = true;
+        label3.Location = new Point(853, 67);
+        label3.Name = "label3";
+        label3.Size = new Size(199, 24);
+        label3.TabIndex = 5;
+        label3.Text = "VideoDownloadMode";
+        // 
+        // btnCopyAllSubdirNames
+        // 
+        btnCopyAllSubdirNames.Location = new Point(569, 153);
+        btnCopyAllSubdirNames.Name = "btnCopyAllSubdirNames";
+        btnCopyAllSubdirNames.Size = new Size(272, 33);
+        btnCopyAllSubdirNames.TabIndex = 20;
+        btnCopyAllSubdirNames.Text = "Copy All Subdir Names";
+        btnCopyAllSubdirNames.UseVisualStyleBackColor = true;
+        btnCopyAllSubdirNames.Click += btnCopyAllSubdirNames_Click;
+        // 
         // Form1
         // 
         AutoScaleDimensions = new SizeF(11F, 24F);
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1558, 783);
+        Controls.Add(btnCopyAllSubdirNames);
+        Controls.Add(cbbVideoDownloadMode);
+        Controls.Add(btnCompressVideo);
         Controls.Add(lblDownloadingCounter);
         Controls.Add(btnStop);
         Controls.Add(btnMarkDeletedFilesNoRedownload);
@@ -249,7 +307,9 @@ partial class Form1
         Controls.Add(chbChildLevel);
         Controls.Add(chbNormal);
         Controls.Add(chbMature);
+        Controls.Add(chbAlwaysDownloadLatest);
         Controls.Add(chbNsfw);
+        Controls.Add(label3);
         Controls.Add(label2);
         Controls.Add(txtTargetFolder);
         Controls.Add(listBoxMessages);
@@ -282,4 +342,9 @@ partial class Form1
     private Button btnMarkDeletedFilesNoRedownload;
     private Button btnStop;
     private Label lblDownloadingCounter;
+    private Button btnCompressVideo;
+    private CheckBox chbAlwaysDownloadLatest;
+    private ComboBox cbbVideoDownloadMode;
+    private Label label3;
+    private Button btnCopyAllSubdirNames;
 }

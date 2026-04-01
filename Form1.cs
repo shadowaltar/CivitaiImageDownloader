@@ -1,24 +1,22 @@
-using System.Diagnostics;
-
 using CivitaiImageDownloader.Models;
 using CivitaiImageDownloader.Util;
+using System.CodeDom;
+using System.Diagnostics;
 
 namespace CivitaiImageDownloader;
 
-public partial class Form1 : Form
+public partial class MainForm : Form
 {
     private const string DefaultTargetFolder = @"D:\AI\CivitAI\";
     private readonly List<DownloadResult> _downloadResults = [];
 
     private bool _stopping = false;
 
-    public Form1()
+    public MainForm()
     {
         InitializeComponent();
 
         txtTargetFolder.Text = DefaultTargetFolder;
-        cbbVideoDownloadMode.Items.AddRange(Enum.GetValues<VideoDownloadMode>().OfType<Object>().ToArray());
-        cbbVideoDownloadMode.SelectedItem = VideoDownloadMode.Auto;
     }
 
     private async void btnDownload_Click(object sender, EventArgs e)
@@ -71,11 +69,9 @@ public partial class Form1 : Form
             MessageBox.Show(this, "Invalid target folder.");
             return;
         }
-        var un = txtUsername.Text;
-        if (un == null) { return; }
 
-        var uns = un.Split(',', StringSplitOptions.RemoveEmptyEntries);
-
+        var uns = txtUsernames.ParseUserNames();
+        if (uns.Count == 0) { return; }
         foreach (var s in uns)
         {
             var folder = Path.Combine(targetFolder, s);
@@ -136,16 +132,8 @@ public partial class Form1 : Form
             return;
         }
 
-        var un = txtUsername.Text;
-        if (un == null) { return; }
-
-        var uns = un.Split(',', StringSplitOptions.RemoveEmptyEntries);
-        if (uns.Length == 0)
-        {
-            MessageBox.Show(this, "Missing user name.");
-            return;
-        }
-
+        var uns = txtUsernames.ParseUserNames();
+        if (uns.Count == 0) { return; }
         var folder = FolderHelper.GetFolder(txtTargetFolder.Text, uns[0]);
         if (!string.IsNullOrEmpty(folder))
         {
@@ -160,7 +148,39 @@ public partial class Form1 : Form
         Process.Start("explorer.exe", folder);
     }
 
-    private async void btnMarkDeletedFilesNoRedownload_ClickAsync(object sender, EventArgs e)
+    private void btnOpenAllUserFolders_Click(object sender, EventArgs e)
+    {
+        var targetFolder = txtTargetFolder.Text;
+        if (!Directory.Exists(targetFolder))
+        {
+            MessageBox.Show(this, "Invalid target folder.");
+            return;
+        }
+
+        var uns = txtUsernames.ParseUserNames();
+        if (uns.Count == 0) { return; }
+        foreach (var userName in uns)
+        {
+            if (userName.Length == 0)
+            {
+                continue;
+            }
+            var folder = FolderHelper.GetFolder(txtTargetFolder.Text, userName);
+            if (!string.IsNullOrEmpty(folder))
+            {
+                AddMessage("Use folder: " + folder);
+            }
+            else
+            {
+                AddMessage("Folder not found: " + folder);
+                return;
+            }
+
+            Process.Start("explorer.exe", folder);
+        }
+    }
+
+    private async void btnMarkDeletedFilesNoRedownload_Click(object sender, EventArgs e)
     {
         Invoke(listBoxMessages.Items.Clear);
         _downloadResults.Clear();
@@ -188,19 +208,14 @@ public partial class Form1 : Form
 
     private DownloadParameters? CreateDownloadParameters()
     {
-
         var targetFolder = txtTargetFolder.Text;
         if (!Directory.Exists(targetFolder))
         {
             MessageBox.Show(this, "Invalid target folder.");
             return null;
         }
-
-        var userNameConcat = txtUsername.Text.Trim();
-        if (userNameConcat == null) { return null; }
-
-        List<string> userNames = userNameConcat.Split(',', StringSplitOptions.RemoveEmptyEntries)
-            .Select(u => u.Trim()).Where(u => !string.IsNullOrWhiteSpace(u)).ToList();
+        List<string> userNames = txtUsernames.ParseUserNames();
+        if (userNames.Count == 0) { return null; }
         List<string> nsfwLevels = [];
         if (chbNsfw.Checked)
         {
@@ -239,8 +254,7 @@ public partial class Form1 : Form
             return null;
         }
 
-        return new DownloadParameters(targetFolder, "", userNames, nsfwLevels, mediaType,
-            chbAlwaysDownloadLatest.Checked, (VideoDownloadMode)cbbVideoDownloadMode.SelectedItem!);
+        return new DownloadParameters(targetFolder, "", userNames, nsfwLevels, mediaType, chbAlwaysDownloadLatest.Checked);
     }
 
     private void AddMessage(string message)
@@ -248,6 +262,14 @@ public partial class Form1 : Form
         Invoke(() =>
         {
             listBoxMessages.Items.Insert(0, message);
+        });
+    }
+
+    private void AddVideoProcessingMessage(string message)
+    {
+        Invoke(() =>
+        {
+            listBoxVideoProcessingMessages.Items.Insert(0, message);
         });
     }
 
@@ -268,7 +290,7 @@ public partial class Form1 : Form
 
     private static List<string> Format(List<DownloadResult> results)
     {
-        int[] maxColLen = new int[5] { "UserName".Length, "Success".Length, "Target".Length, "Failed".Length, "Skipped".Length };
+        int[] maxColLen = ["UserName".Length, "Success".Length, "Target".Length, "Failed".Length, "Skipped".Length];
         foreach (var item in results)
         {
             maxColLen[0] = Math.Max(item.UserName.Length, maxColLen[0]);
@@ -307,44 +329,6 @@ public partial class Form1 : Form
         _stopping = true;
     }
 
-    private async void btnCompressVideo_Click(object sender, EventArgs e)
-    {
-        _stopping = false;
-
-        Invoke(listBoxMessages.Items.Clear);
-        UpdateDownloadingCounter(-1);
-        _downloadResults.Clear();
-        var parameters = CreateDownloadParameters();
-        if (parameters == null)
-        {
-            return;
-        }
-
-        VideoCompressor? vc = null;
-        foreach (var un in parameters.UserNames)
-        {
-            if (_stopping && vc != null)
-            {
-                vc.ShouldStop = true;
-                AddMessage("Video compression stopped.");
-                break;
-            }
-            vc = new VideoCompressor(parameters.TargetFolder, un);
-            vc.RaiseMessage += AddMessage;
-            await vc.Run();
-            vc.RaiseMessage -= AddMessage;
-            vc.Dispose();
-        }
-
-        // print summary
-        AddMessage("====SUMMARY====");
-        foreach (var r in Format(_downloadResults))
-        {
-            AddMessage(r);
-        }
-        AddMessage("====SUMMARY====");
-    }
-
     private void btnCopyAllSubdirNames_Click(object sender, EventArgs e)
     {
         var rootFolder = txtTargetFolder.Text;
@@ -356,5 +340,171 @@ public partial class Form1 : Form
         var allDirs = Directory.GetDirectories(rootFolder, "*", SearchOption.AllDirectories);
         var dirNames = allDirs.Select(d => Path.GetFileName(d)).Where(d => !d.StartsWith('!')).Distinct().ToList();
         Clipboard.SetText(string.Join(",", dirNames));
+    }
+
+    private void btnCopyFromDownloadTab_Click(object sender, EventArgs e)
+    {
+        txtVideoProcessingUsers.Text = txtUsernames.Text;
+    }
+
+    private async void btnCompressVideo_Click(object sender, EventArgs e)
+    {
+        Invoke(listBoxVideoProcessingMessages.Items.Clear);
+
+        VideoCompressor? vc = null;
+
+        List<string> names = txtVideoProcessingUsers.ParseUserNames();
+        if (names.Count == 0) { return; }
+        if (txtVideoProcessingUsers.Text.Length == 0 && names.Count == 0 && !Path.Exists(txtTargetFolder.Text))
+        {
+            var result = MessageBox.Show("Do you want to compress everything in " + txtTargetFolder.Text + "?", "Warning", MessageBoxButtons.YesNo);
+            if (result == DialogResult.Yes)
+            {
+                names = [txtTargetFolder.Text];
+            }
+        }
+        foreach (var name in names)
+        {
+            var mode = VideoProcessInputMode.UserName;
+            if (Path.Exists(name))
+            {
+                // it is a file path
+                mode = VideoProcessInputMode.FilePath;
+            }
+            if (_stopping && vc != null)
+            {
+                vc.ShouldStop = true;
+                AddMessage("Video compression stopped.");
+                break;
+            }
+            vc = new VideoCompressor(txtTargetFolder.Text, name, mode);
+            vc.RaiseMessage += AddVideoProcessingMessage;
+            await vc.Run();
+            vc.RaiseMessage -= AddVideoProcessingMessage;
+            vc.Dispose();
+        }
+        AddVideoProcessingMessage("ALL DONE!");
+    }
+
+    private void MainForm_DragEnter(object sender, DragEventArgs e)
+    {
+        // Check if the data being dragged is a file (FileDrop)
+        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        {
+            // Show the "Copy" cursor
+            e.Effect = DragDropEffects.Copy;
+        }
+        else
+        {
+            // Show the "No Entry" cursor
+            e.Effect = DragDropEffects.None;
+        }
+    }
+
+    private void MainForm_DragDrop(object sender, DragEventArgs e)
+    {
+        // 3. Extract the data (an array of file paths)
+        string[] paths = (string[])e.Data.GetData(DataFormats.FileDrop);
+        List<string> userNames = [];
+        List<string> fileNames = [];
+        foreach (var path in paths)
+        {
+            if (Directory.Exists(path))
+            {
+                // use this path's last piece as user name
+                userNames.Add(Path.GetFileNameWithoutExtension(path));
+            }
+            else if (File.Exists(path))
+            {
+                fileNames.Add(path);
+            }
+        }
+        if (mainTabControl.SelectedTab == tabPage2)
+        {
+            if (userNames.Count > 0)
+                txtVideoProcessingUsers.Text = string.Join(",", userNames);
+            else if (fileNames.Count > 0)
+                txtVideoProcessingUsers.Text = string.Join(",", fileNames);
+        }
+        else
+        {
+            txtUsernames.Text = string.Join(",", userNames);
+        }
+    }
+
+    private void btnMoveUsersToRating_Click(object sender, EventArgs e)
+    {
+        bool r3 = chb3Star.Checked;
+        bool r4 = chb4Star.Checked;
+        bool r45 = chb4p5Star.Checked;
+        bool r5 = chb5Star.Checked;
+        bool r6 = chb6Star.Checked;
+        var bools = new List<bool> { r3, r4, r45, r5, r6 };
+        if (bools.Count(b => b) > 1)
+        {
+            MessageBox.Show("Can't move the user to this rating folder: multiple ratings are selected.");
+            return;
+        }
+        var subFolder = getSubFolderByRating(r3, r4, r45, r5, r6);
+        if (subFolder == null)
+        {
+            AddMessage("Rating folder does not exist.");
+            return;
+        }
+        var userNames = txtUsernames.ParseUserNames();
+        if (userNames.Count == 0) { return; }
+        var newBase = Path.Combine(txtTargetFolder.Text, subFolder);
+        if (!Path.Exists(newBase))
+        {
+            Directory.CreateDirectory(newBase);
+            AddMessage($"Created dir: {newBase}");
+        }
+        foreach (var userName in userNames)
+        {
+            var source = FolderHelper.GetFolder(txtTargetFolder.Text, userName);
+            var destination = Path.Combine(newBase, userName);
+            if (source.Equals(destination))
+            {
+                AddMessage($"No action for {userName}: Already in {destination}");
+            }
+            else if (string.IsNullOrEmpty(source))
+            {
+                AddMessage($"No action for {userName}: source folder {source} does not exist.");
+            }
+            else
+            {
+                if (!Path.Exists(destination))
+                {
+                    Directory.CreateDirectory(destination);
+                    AddMessage($"Created dir: {destination}");
+                }
+                AddMessage($"Moved {Utils.MergeDirectories(source, destination)} files from {source} to {destination}");
+            }
+        }
+    }
+
+    private static string getSubFolderByRating(bool r3, bool r4, bool r45, bool r5, bool r6)
+    {
+        if (r3)
+        {
+            return "!3";
+        }
+        if (r4)
+        {
+            return "!4";
+        }
+        if (r45)
+        {
+            return "!4.5";
+        }
+        if (r5)
+        {
+            return "!5";
+        }
+        if (r6)
+        {
+            return "!6";
+        }
+        return null;
     }
 }

@@ -6,7 +6,6 @@ public record DownloadParameters(string TargetFolder,
                                  List<string> UserNames,
                                  List<string> NsfwLevels,
                                  MediaType MediaType,
-                                 bool IsAlwaysLatestMetaInfo,
-                                 VideoDownloadMode VideoDownloadMode)
+                                 bool IsAlwaysLatestMetaInfo)
 {
 }

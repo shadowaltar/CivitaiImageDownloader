@@ -2,7 +2,7 @@ using CivitaiImageDownloader.Models;
 using CivitaiImageDownloader.Util;
 using Common;
 using NReco.VideoInfo;
-using System.IO;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -17,7 +17,6 @@ public class Downloader : IDisposable
     private readonly List<string> _nsfwLevels;
     private readonly MediaType _mediaType;
     private readonly bool _isAlwaysLatestMetaInfo;
-    private readonly VideoDownloadMode _videoDownloadMode;
     private readonly HttpClient httpClient = new()
     {
         Timeout = TimeSpan.FromSeconds(15)
@@ -43,7 +42,6 @@ public class Downloader : IDisposable
         _nsfwLevels = parameters.NsfwLevels;
         _mediaType = parameters.MediaType;
         _isAlwaysLatestMetaInfo = parameters.IsAlwaysLatestMetaInfo;
-        _videoDownloadMode = parameters.VideoDownloadMode;
     }
 
     public async Task<DownloadResult> Run()
@@ -169,7 +167,7 @@ public class Downloader : IDisposable
                 }
                 count++;
 
-                RaiseMessage?.Invoke($"Parsed #{count} info url, filtered in {mediaMetas.Count} media urls.");
+                RaiseMessage?.Invoke($"Parsed #{count} info url, filtered in {mediaMetas.Count} media urls: {infoUrl}");
                 allMetas.AddRange(mediaMetas);
                 _skippedCount += skippedCount;
 
@@ -385,17 +383,25 @@ public class Downloader : IDisposable
     private async Task<string> GetInfoContentAsync(HttpClient httpClient, string infoUrl)
     {
         var tryCount = 0;
-        var maxCount = 10;
-        while (tryCount < maxCount)
+        var maxCount = 100;
+        httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "49a985840663565e33f89eb804106a08");
+        while (true)
         {
             if (ShouldStop)
                 return "";
-
+            if (tryCount >= maxCount)
+            {
+                break;
+            }
             try
             {
                 var response = await httpClient.GetAsync(infoUrl);
                 if (!response.IsSuccessStatusCode)
-                    return "";
+                {
+                    tryCount++;
+                    RaiseMessage?.Invoke($"Retrying {tryCount}/{maxCount} for url: " + infoUrl);
+                    continue;
+                }
                 var content = await response.Content.ReadAsStringAsync();
                 return content;
             }

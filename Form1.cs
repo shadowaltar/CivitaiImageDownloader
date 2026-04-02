@@ -1,7 +1,8 @@
 using CivitaiImageDownloader.Models;
 using CivitaiImageDownloader.Util;
-using System.CodeDom;
+using Common;
 using System.Diagnostics;
+using Utils = CivitaiImageDownloader.Util.Utils;
 
 namespace CivitaiImageDownloader;
 
@@ -265,11 +266,43 @@ public partial class MainForm : Form
         });
     }
 
+    private void AppendMessage(string message)
+    {
+        Invoke(() =>
+        {
+            try
+            {
+                var item = (string)listBoxMessages.Items[0];
+                listBoxMessages.Items[0] = item + message;
+            }
+            catch (Exception e)
+            {
+                // do nothing
+            }
+        });
+    }
+
     private void AddVideoProcessingMessage(string message)
     {
         Invoke(() =>
         {
             listBoxVideoProcessingMessages.Items.Insert(0, message);
+        });
+    }
+
+    private void AppendVideoProcessingMessage(string message)
+    {
+        Invoke(() =>
+        {
+            try
+            {
+                var item = (string)listBoxVideoProcessingMessages.Items[0];
+                listBoxVideoProcessingMessages.Items[0] = item + message;
+            }
+            catch (Exception e)
+            {
+                // do nothing
+            }
         });
     }
 
@@ -378,9 +411,11 @@ public partial class MainForm : Form
                 break;
             }
             vc = new VideoCompressor(txtTargetFolder.Text, name, mode);
-            vc.RaiseMessage += AddVideoProcessingMessage;
+            vc.RaiseAddMessage += AddVideoProcessingMessage;
+            vc.RaiseAppendMessage += AppendVideoProcessingMessage;
             await vc.Run();
-            vc.RaiseMessage -= AddVideoProcessingMessage;
+            vc.RaiseAppendMessage -= AddVideoProcessingMessage;
+            vc.RaiseAppendMessage -= AppendVideoProcessingMessage;
             vc.Dispose();
         }
         AddVideoProcessingMessage("ALL DONE!");
@@ -506,5 +541,14 @@ public partial class MainForm : Form
             return "!6";
         }
         return null;
+    }
+
+    private void btnCompressInfo_Click(object sender, EventArgs e)
+    {
+        var userNames = UserNameHelper.ParseUserNames(txtUsernames);
+        foreach (var user in userNames)
+        {
+
+        }
     }
 }

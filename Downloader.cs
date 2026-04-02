@@ -2,15 +2,17 @@ using CivitaiImageDownloader.Models;
 using CivitaiImageDownloader.Util;
 using Common;
 using NReco.VideoInfo;
+using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Utils = CivitaiImageDownloader.Util.Utils;
 
 namespace CivitaiImageDownloader;
 
 public class Downloader : IDisposable
 {
-    private string SkipRecordFileName = "media-to-ignore.json";
+    public const string SkipRecordFileName = "media-to-ignore.json";
 
     private readonly string _rootFolder;
     private readonly string _userName;
@@ -63,9 +65,11 @@ public class Downloader : IDisposable
         RenameTxtToJson(folder);
 
         await GetAllMetaInfos(allMetas, folder);
+        Utils.ZipInfoFiles(folder);
         var result = await DownloadMedia(allMetas, folder);
 
         httpClient.Dispose();
+
         return result;
     }
 
@@ -84,8 +88,9 @@ public class Downloader : IDisposable
             Directory.CreateDirectory(Path.Combine(_rootFolder, _userName));
         }
         RenameTxtToJson(folder);
-        var existingInfoFiles = Directory.GetFiles(folder, "*.json");
+        var existingInfoFiles = Utils.GetInfoFiles(folder);
         await GetLocalMetaInfo(allMetas, existingInfoFiles);
+        Utils.ZipInfoFiles(folder);
 
         List<ExistenceResult> results = [];
 
@@ -131,9 +136,9 @@ public class Downloader : IDisposable
     private async Task GetAllMetaInfos(List<MediaMeta> allMetas, string folder)
     {
         // do not seek from website if info files exists
-        var existingInfoFiles = Directory.GetFiles(folder, "*.json")
-            .Where(f => !f.Contains(SkipRecordFileName)).ToArray();
-        if (!_isAlwaysLatestMetaInfo && existingInfoFiles.Length != 0)
+
+        var existingInfoFiles = Utils.GetInfoFiles(folder);
+        if (!_isAlwaysLatestMetaInfo && existingInfoFiles.Count != 0)
         {
             await GetLocalMetaInfo(allMetas, existingInfoFiles);
             return;
@@ -184,26 +189,29 @@ public class Downloader : IDisposable
         }
     }
 
-    private async Task GetLocalMetaInfo(List<MediaMeta> allMetas, string[] existingInfoFiles)
+    private async Task GetLocalMetaInfo(List<MediaMeta> allMetas, List<string> existingInfoFiles)
     {
+        var bag = new ConcurrentBag<MediaMeta>();
         // never in parallel-mode as it is fast
-        foreach (var file in existingInfoFiles)
+        await Parallel.ForEachAsync(existingInfoFiles, async (file, _) =>
         {
             if (ShouldStop)
                 return;
             if (file.EndsWith(SkipRecordFileName))
-                continue;
+                return;
 
             var infoContent = File.ReadAllText(file);
             InfoParseResult? infoParseResult = await ParseAsync(infoContent);
             if (infoParseResult == null)
-                continue;
+                return;
 
             var (mediaMetas, skippedCount, jObj, thisInfoUrl, nextInfoUrl) = infoParseResult;
             _skippedCount += skippedCount;
             RaiseMessage?.Invoke($"Parsed local: {file}, got {mediaMetas.Count} image urls, next? {nextInfoUrl != null}");
-            allMetas.AddRange(mediaMetas);
-        }
+            foreach (var mediaMeta in mediaMetas)
+                bag.Add(mediaMeta);
+        });
+        allMetas.AddRange(bag.OrderBy(m => m.Id));
     }
 
     private async Task<DownloadResult> DownloadMedia(List<MediaMeta> allMetas, string folder)
@@ -376,7 +384,7 @@ public class Downloader : IDisposable
 
     private List<string> GetFileNamesAlreadyExist(string folder)
     {
-        return Directory.GetFiles(folder).Where(s => !s.EndsWith(".txt") && !s.EndsWith(".json"))
+        return Directory.GetFiles(folder).Where(s => !s.EndsWith(".txt") && !s.EndsWith(".json") && !s.EndsWith(".json.zip"))
             .ToList();
     }
 

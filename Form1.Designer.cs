@@ -65,6 +65,7 @@ partial class MainForm
         btnCompressVideo = new Button();
         label2 = new Label();
         txtTargetFolder = new TextBox();
+        btnCompressInfo = new Button();
         mainTabControl.SuspendLayout();
         DownloadPage.SuspendLayout();
         tabPage2.SuspendLayout();
@@ -83,6 +84,7 @@ partial class MainForm
         // 
         // DownloadPage
         // 
+        DownloadPage.Controls.Add(btnCompressInfo);
         DownloadPage.Controls.Add(btnSetUserNameTextByRating);
         DownloadPage.Controls.Add(btnMoveUsersToRating);
         DownloadPage.Controls.Add(chb6Star);
@@ -481,6 +483,16 @@ partial class MainForm
         txtTargetFolder.Size = new Size(485, 30);
         txtTargetFolder.TabIndex = 27;
         // 
+        // btnCompressInfo
+        // 
+        btnCompressInfo.Location = new Point(1690, 112);
+        btnCompressInfo.Name = "btnCompressInfo";
+        btnCompressInfo.Size = new Size(272, 33);
+        btnCompressInfo.TabIndex = 58;
+        btnCompressInfo.Text = "Compress Info Files";
+        btnCompressInfo.UseVisualStyleBackColor = true;
+        btnCompressInfo.Click += btnCompressInfo_Click;
+        // 
         // MainForm
         // 
         AllowDrop = true;
@@ -542,4 +554,5 @@ partial class MainForm
     private CheckBox chb3Star;
     private Button btnSetUserNameTextByRating;
     private Button btnMoveUsersToRating;
+    private Button btnCompressInfo;
 }

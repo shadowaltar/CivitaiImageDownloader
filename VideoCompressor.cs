@@ -13,7 +13,7 @@ public class VideoCompressor : IDisposable
     private readonly VideoProcessInputMode mode;
     private readonly FFProbe _ffProbe = new FFProbe();
 
-    public int CompressionSizeBytesThreshold { get; set; } = 4 * 1024 * 1024;
+    public int CompressionSizeBytesThreshold { get; set; } = 3 * 1024 * 1024; // 3MB
     public int CompressionFrameSizeDimensionThreshold { get; set; } = 1000;
     public double CompressionFrameSizeRatio { get; set; } = .75;
 
@@ -26,7 +26,9 @@ public class VideoCompressor : IDisposable
 
     public bool ShouldStop { get; internal set; }
 
-    public Action<string> RaiseMessage { get; internal set; }
+    public Action<string> RaiseAddMessage { get; internal set; }
+
+    public Action<string> RaiseAppendMessage { get; internal set; }
 
     public void Dispose()
     {
@@ -40,11 +42,11 @@ public class VideoCompressor : IDisposable
             var folder = FolderHelper.GetFolder(_rootFolder, name);
             if (!string.IsNullOrEmpty(folder))
             {
-                RaiseMessage?.Invoke("Use folder: " + folder);
+                RaiseAddMessage?.Invoke("Use folder: " + folder);
             }
             else
             {
-                RaiseMessage?.Invoke("Folder not found: " + folder);
+                RaiseAddMessage?.Invoke("Folder not found: " + folder);
                 return;
             }
 
@@ -63,15 +65,19 @@ public class VideoCompressor : IDisposable
                 {
                     failedCount++;
                 }
+                else
+                {
+                    goodCount++;
+                }
             }
-            RaiseMessage?.Invoke($"Finished. Good/Error: {goodCount}/{failedCount}");
+            RaiseAddMessage?.Invoke($"Finished. Good/Error/Total: {goodCount}/{failedCount}/{totalCount}");
         }
         else
         {
             var folder = Path.GetDirectoryName(name) ?? "";
             var ffmpeg = new FFMpegConverter();
             var result = await Compress(folder, ffmpeg, "", name);
-            RaiseMessage?.Invoke($"Finished, result: {(result == VideoCompressResult.Good ? "Good" : "Failed")}");
+            RaiseAddMessage?.Invoke($"Finished, result: {(result == VideoCompressResult.Good ? "Good" : "Failed")}");
         }
     }
 
@@ -93,31 +99,36 @@ public class VideoCompressor : IDisposable
                 return VideoCompressResult.SkippedFileSizeTooSmall;
             }
             compressedFile = Path.Combine(folder, "compressing_" + fi.Name);
-            RaiseMessage?.Invoke($"{logPrefix}Compressing video: {fi.Name} ...");
+            RaiseAddMessage?.Invoke($"{logPrefix}Compress video: {fi.Name} ...");
 
             await Task.Run(() =>
             {
-                (_, Rect old, Rect @new) = Convert(ffmpeg, path, compressedFile);
+                (var result, Rect old, Rect @new) = Convert(ffmpeg, path, compressedFile);
                 var resultFile = new FileInfo(compressedFile);
-                RaiseMessage?.Invoke($"{logPrefix}Compressed: " +
-                    $"{(fi.Length / 1024.0 / 1024.0):.00}KB -> {(resultFile.Length / 1024.0 / 1024.0):.00}KB; " +
-                    $"{old.Width}x{old.Height} -> {@new.Width}x{@new.Height}");
+                if (resultFile.Exists)
+                {
+                    var oldMb = fi.Length / 1024.0 / 1024.0;
+                    var newMb = resultFile.Length / 1024.0 / 1024.0;
+                    RaiseAppendMessage?.Invoke($" Result: {oldMb:.00}MB -> {newMb:.00}MB; {old.Width}x{old.Height} -> {@new.Width}x{@new.Height}");
 
-                File.Delete(path);
-                File.Move(compressedFile, compressedFile.Replace("compressing_", ""));
+                    File.Delete(path);
+                    File.Move(compressedFile, compressedFile.Replace("compressing_", ""));
+                }
+                else
+                    RaiseAddMessage?.Invoke($"{logPrefix}Skipped: {result}");
             });
         }
         catch (FFMpegException ex)
         {
             // This ErrorCode tells you exactly why FFmpeg died (e.g., 1 for general error)
-            RaiseMessage?.Invoke($"{logPrefix}FFMpeg Error Code: {ex.ErrorCode}; Msg: {ex.Message}");
+            RaiseAddMessage?.Invoke($"{logPrefix}FFMpeg Error Code: {ex.ErrorCode}; Msg: {ex.Message}");
             if (compressedFile != null)
                 File.Delete(compressedFile);
             return VideoCompressResult.Failed;
         }
         catch (Exception e)
         {
-            RaiseMessage?.Invoke($"Error: {e}.");
+            RaiseAddMessage?.Invoke($"Error: {e}.");
             if (compressedFile != null)
                 File.Delete(compressedFile);
             return VideoCompressResult.Failed;
@@ -156,15 +167,19 @@ public class VideoCompressor : IDisposable
         // must enforce H.264 dimensions to even numbers
         newVideoWidth = toEven(videoWidth * CompressionFrameSizeRatio);
         newVideoHeight = toEven(videoHeight * CompressionFrameSizeRatio);
-        var oldDimension = new Rect(videoWidth, videoHeight);
 
+        var oldDimension = new Rect(videoWidth, videoHeight);
+        if (new FileInfo(path).Length / 1024.0 / 1024.0 < 1)
+        {
+            return (VideoCompressResult.SkippedFileSizeTooSmall, oldDimension, oldDimension);
+        }
         if (videoWidth == 500 || videoHeight == 500)
         {
-            return (VideoCompressResult.SkippedDimensionTooSmall, oldDimension, new Rect(newVideoWidth, newVideoHeight));
+            return (VideoCompressResult.SkippedDimensionTooSmall, oldDimension, oldDimension);
         }
         if (newVideoWidth <= 500 || newVideoHeight <= 500)
         {
-            var ratio = videoWidth / videoHeight;
+            var ratio = videoWidth / (double)videoHeight;
             if (newVideoWidth <= 500)
             {
                 newVideoWidth = 500;

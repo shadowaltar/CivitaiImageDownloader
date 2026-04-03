@@ -30,6 +30,7 @@ partial class MainForm
     {
         mainTabControl = new TabControl();
         DownloadPage = new TabPage();
+        btnCompressInfo = new Button();
         btnSetUserNameTextByRating = new Button();
         btnMoveUsersToRating = new Button();
         chb6Star = new CheckBox();
@@ -65,7 +66,6 @@ partial class MainForm
         btnCompressVideo = new Button();
         label2 = new Label();
         txtTargetFolder = new TextBox();
-        btnCompressInfo = new Button();
         mainTabControl.SuspendLayout();
         DownloadPage.SuspendLayout();
         tabPage2.SuspendLayout();
@@ -119,6 +119,16 @@ partial class MainForm
         DownloadPage.TabIndex = 0;
         DownloadPage.Text = "Download";
         DownloadPage.UseVisualStyleBackColor = true;
+        // 
+        // btnCompressInfo
+        // 
+        btnCompressInfo.Location = new Point(1690, 112);
+        btnCompressInfo.Name = "btnCompressInfo";
+        btnCompressInfo.Size = new Size(272, 33);
+        btnCompressInfo.TabIndex = 58;
+        btnCompressInfo.Text = "Compress Info Files";
+        btnCompressInfo.UseVisualStyleBackColor = true;
+        btnCompressInfo.Click += btnCompressInfo_Click;
         // 
         // btnSetUserNameTextByRating
         // 
@@ -425,6 +435,7 @@ partial class MainForm
         listBoxVideoProcessingMessages.Name = "listBoxVideoProcessingMessages";
         listBoxVideoProcessingMessages.Size = new Size(2234, 787);
         listBoxVideoProcessingMessages.TabIndex = 46;
+        listBoxVideoProcessingMessages.DoubleClick += listBoxVideoProcessingMessages_DoubleClick;
         // 
         // btnCopyFromDownloadTab
         // 
@@ -482,16 +493,6 @@ partial class MainForm
         txtTargetFolder.Name = "txtTargetFolder";
         txtTargetFolder.Size = new Size(485, 30);
         txtTargetFolder.TabIndex = 27;
-        // 
-        // btnCompressInfo
-        // 
-        btnCompressInfo.Location = new Point(1690, 112);
-        btnCompressInfo.Name = "btnCompressInfo";
-        btnCompressInfo.Size = new Size(272, 33);
-        btnCompressInfo.TabIndex = 58;
-        btnCompressInfo.Text = "Compress Info Files";
-        btnCompressInfo.UseVisualStyleBackColor = true;
-        btnCompressInfo.Click += btnCompressInfo_Click;
         // 
         // MainForm
         // 

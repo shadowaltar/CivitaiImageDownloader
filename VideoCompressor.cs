@@ -13,6 +13,8 @@ public class VideoCompressor : IDisposable
     private readonly VideoProcessInputMode mode;
     private readonly FFProbe _ffProbe = new FFProbe();
 
+    public string UserName => mode == VideoProcessInputMode.UserName ? name : "";
+
     public int CompressionSizeBytesThreshold { get; set; } = 3 * 1024 * 1024; // 3MB
     public int CompressionFrameSizeDimensionThreshold { get; set; } = 1000;
     public double CompressionFrameSizeRatio { get; set; } = .75;
@@ -115,7 +117,7 @@ public class VideoCompressor : IDisposable
                     File.Move(compressedFile, compressedFile.Replace("compressing_", ""));
                 }
                 else
-                    RaiseAddMessage?.Invoke($"{logPrefix}Skipped: {result}");
+                    RaiseAppendMessage?.Invoke($" Skipped: {result}");
             });
         }
         catch (FFMpegException ex)

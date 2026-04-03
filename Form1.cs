@@ -1,7 +1,7 @@
 using CivitaiImageDownloader.Models;
 using CivitaiImageDownloader.Util;
-using Common;
 using System.Diagnostics;
+using static System.Net.Mime.MediaTypeNames;
 using Utils = CivitaiImageDownloader.Util.Utils;
 
 namespace CivitaiImageDownloader;
@@ -10,8 +10,10 @@ public partial class MainForm : Form
 {
     private const string DefaultTargetFolder = @"D:\AI\CivitAI\";
     private readonly List<DownloadResult> _downloadResults = [];
+    private string currentUserFolder;
 
     private bool _stopping = false;
+    private VideoCompressor? videoCompressor;
 
     public MainForm()
     {
@@ -112,6 +114,41 @@ public partial class MainForm : Form
         }
     }
 
+    private void listBoxVideoProcessingMessages_DoubleClick(object sender, EventArgs e)
+    {
+        if (videoCompressor == null || string.IsNullOrWhiteSpace(videoCompressor.UserName))
+        {
+            return;
+        }
+        currentUserFolder = FolderHelper.GetFolder(txtTargetFolder.Text, videoCompressor.UserName);
+        if (listBoxVideoProcessingMessages.SelectedIndex != -1 && Directory.Exists(currentUserFolder))
+        {
+            string selectedItemText = listBoxVideoProcessingMessages.SelectedItem?.ToString() ?? "";
+            if (selectedItemText.Contains("Compress video:"))
+            {
+                var parts = selectedItemText.Split("Compress video:");
+                if (parts.Length >= 2)
+                {
+                    parts = parts[1].Split(" ... ");
+                    if (parts.Length >= 2)
+                    {
+                        var candidate = parts[0].Trim();
+                        var path = Path.Combine(currentUserFolder, candidate);
+                        Process.Start(new ProcessStartInfo(path)
+                        {
+                            UseShellExecute = true
+                        });
+                        Clipboard.SetText(path);
+                    }
+                }
+            }
+            else
+            {
+                Clipboard.SetText(selectedItemText);
+            }
+        }
+    }
+
     private void btnCopyFailedUrls_Click(object sender, EventArgs e)
     {
         var failedUrls = _downloadResults.SelectMany(r => r.FailedUrls).ToList();
@@ -126,6 +163,7 @@ public partial class MainForm : Form
 
     private void btnOpenFirstUserFolder_Click(object sender, EventArgs e)
     {
+        currentUserFolder = "";
         var targetFolder = txtTargetFolder.Text;
         if (!Directory.Exists(targetFolder))
         {
@@ -139,6 +177,7 @@ public partial class MainForm : Form
         if (!string.IsNullOrEmpty(folder))
         {
             AddMessage("Use folder: " + folder);
+            currentUserFolder = folder;
         }
         else
         {
@@ -151,6 +190,7 @@ public partial class MainForm : Form
 
     private void btnOpenAllUserFolders_Click(object sender, EventArgs e)
     {
+        currentUserFolder = "";
         var targetFolder = txtTargetFolder.Text;
         if (!Directory.Exists(targetFolder))
         {
@@ -170,6 +210,7 @@ public partial class MainForm : Form
             if (!string.IsNullOrEmpty(folder))
             {
                 AddMessage("Use folder: " + folder);
+                currentUserFolder = folder;
             }
             else
             {
@@ -384,7 +425,7 @@ public partial class MainForm : Form
     {
         Invoke(listBoxVideoProcessingMessages.Items.Clear);
 
-        VideoCompressor? vc = null;
+        videoCompressor = null;
 
         List<string> names = txtVideoProcessingUsers.ParseUserNames();
         if (names.Count == 0) { return; }
@@ -404,19 +445,19 @@ public partial class MainForm : Form
                 // it is a file path
                 mode = VideoProcessInputMode.FilePath;
             }
-            if (_stopping && vc != null)
+            if (_stopping && videoCompressor != null)
             {
-                vc.ShouldStop = true;
+                videoCompressor.ShouldStop = true;
                 AddMessage("Video compression stopped.");
                 break;
             }
-            vc = new VideoCompressor(txtTargetFolder.Text, name, mode);
-            vc.RaiseAddMessage += AddVideoProcessingMessage;
-            vc.RaiseAppendMessage += AppendVideoProcessingMessage;
-            await vc.Run();
-            vc.RaiseAppendMessage -= AddVideoProcessingMessage;
-            vc.RaiseAppendMessage -= AppendVideoProcessingMessage;
-            vc.Dispose();
+            videoCompressor = new VideoCompressor(txtTargetFolder.Text, name, mode);
+            videoCompressor.RaiseAddMessage += AddVideoProcessingMessage;
+            videoCompressor.RaiseAppendMessage += AppendVideoProcessingMessage;
+            await videoCompressor.Run();
+            videoCompressor.RaiseAppendMessage -= AddVideoProcessingMessage;
+            videoCompressor.RaiseAppendMessage -= AppendVideoProcessingMessage;
+            videoCompressor.Dispose();
         }
         AddVideoProcessingMessage("ALL DONE!");
     }
@@ -469,6 +510,7 @@ public partial class MainForm : Form
 
     private void btnMoveUsersToRating_Click(object sender, EventArgs e)
     {
+        currentUserFolder = "";
         bool r3 = chb3Star.Checked;
         bool r4 = chb4Star.Checked;
         bool r45 = chb4p5Star.Checked;
@@ -500,6 +542,7 @@ public partial class MainForm : Form
             var destination = Path.Combine(newBase, userName);
             if (source.Equals(destination))
             {
+                currentUserFolder = source;
                 AddMessage($"No action for {userName}: Already in {destination}");
             }
             else if (string.IsNullOrEmpty(source))

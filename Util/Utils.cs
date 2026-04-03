@@ -47,7 +47,7 @@ public static class Utils
 
     internal static void ZipInfoFiles(string folder)
     {
-        var jsonFiles = Directory.GetFiles(folder, "*.json").Where(f => f != Downloader.SkipRecordFileName).ToList();
+        var jsonFiles = Directory.GetFiles(folder, "*.json").Where(f => !f.EndsWith(Downloader.SkipRecordFileName)).ToList();
         var infoZipPath = Path.Combine(folder, "info.json.zip");
         if (Path.Exists(infoZipPath))
         {

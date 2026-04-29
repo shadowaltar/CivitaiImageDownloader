@@ -42,13 +42,14 @@ public static class Utils
                     if (item == null)
                         continue;
 
-                    StripUnwantedFields(item);
+                    var cloned = item.DeepClone();
+                    StripUnwantedFields(cloned);
 
-                    var id = item["id"]?.GetValue<int>() ?? 0;
+                    int.TryParse(cloned["id"]?.ToString(), out var id);
                     if (id > 0 && !seenIds.Add(id))
                         continue;
 
-                    allItems.Add(item.DeepClone());
+                    allItems.Add(cloned);
                 }
             }
             catch { }
@@ -115,7 +116,7 @@ public static class Utils
                 ZipFile.ExtractToDirectory(infoZipPath, folder);
             }
         }
-        return Directory.GetFiles(folder, "*.json").Where(f => f != Downloader.SkipRecordFileName).ToList();
+        return Directory.GetFiles(folder, "*.json").Where(f => !f.EndsWith(Downloader.SkipRecordFileName)).ToList();
     }
 
     internal static void ZipInfoFiles(string folder)

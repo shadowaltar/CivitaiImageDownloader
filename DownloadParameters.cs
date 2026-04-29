@@ -1,6 +1,7 @@
 ﻿using CivitaiImageDownloader.Models;
 
 namespace CivitaiImageDownloader;
+
 public record DownloadParameters(string TargetFolder,
                                  string UserName,
                                  List<string> UserNames,
@@ -8,4 +9,5 @@ public record DownloadParameters(string TargetFolder,
                                  MediaType MediaType,
                                  bool IsAlwaysLatestMetaInfo)
 {
+    internal List<UserMeta> DownloadedUserMeta { get; set; }
 }

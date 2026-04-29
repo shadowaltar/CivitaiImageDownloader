@@ -64,11 +64,21 @@ partial class MainForm
         label4 = new Label();
         txtVideoProcessingUsers = new TextBox();
         btnCompressVideo = new Button();
+        tabPage1 = new TabPage();
+        dgvUserHistory = new DataGridView();
+        btnCopyToVideoTab = new Button();
+        btnCopyToDownloadTab = new Button();
         label2 = new Label();
         txtTargetFolder = new TextBox();
+        UserName = new DataGridViewTextBoxColumn();
+        FileCount = new DataGridViewTextBoxColumn();
+        FolderSize = new DataGridViewTextBoxColumn();
+        ParentFolder = new DataGridViewTextBoxColumn();
         mainTabControl.SuspendLayout();
         DownloadPage.SuspendLayout();
         tabPage2.SuspendLayout();
+        tabPage1.SuspendLayout();
+        ((System.ComponentModel.ISupportInitialize)dgvUserHistory).BeginInit();
         SuspendLayout();
         // 
         // mainTabControl
@@ -76,6 +86,7 @@ partial class MainForm
         mainTabControl.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         mainTabControl.Controls.Add(DownloadPage);
         mainTabControl.Controls.Add(tabPage2);
+        mainTabControl.Controls.Add(tabPage1);
         mainTabControl.Location = new Point(12, 12);
         mainTabControl.Name = "mainTabControl";
         mainTabControl.SelectedIndex = 0;
@@ -422,7 +433,7 @@ partial class MainForm
         tabPage2.Padding = new Padding(3);
         tabPage2.Size = new Size(2246, 971);
         tabPage2.TabIndex = 1;
-        tabPage2.Text = "Video Download";
+        tabPage2.Text = "Videos";
         tabPage2.UseVisualStyleBackColor = true;
         // 
         // listBoxVideoProcessingMessages
@@ -476,6 +487,53 @@ partial class MainForm
         btnCompressVideo.UseVisualStyleBackColor = true;
         btnCompressVideo.Click += btnCompressVideo_Click;
         // 
+        // tabPage1
+        // 
+        tabPage1.Controls.Add(dgvUserHistory);
+        tabPage1.Controls.Add(btnCopyToVideoTab);
+        tabPage1.Controls.Add(btnCopyToDownloadTab);
+        tabPage1.Location = new Point(4, 33);
+        tabPage1.Name = "tabPage1";
+        tabPage1.Padding = new Padding(3);
+        tabPage1.Size = new Size(2246, 971);
+        tabPage1.TabIndex = 2;
+        tabPage1.Text = "History";
+        tabPage1.UseVisualStyleBackColor = true;
+        // 
+        // dgvUserHistory
+        // 
+        dgvUserHistory.AllowUserToAddRows = false;
+        dgvUserHistory.AllowUserToDeleteRows = false;
+        dgvUserHistory.AllowUserToOrderColumns = true;
+        dgvUserHistory.AllowUserToResizeRows = false;
+        dgvUserHistory.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
+        dgvUserHistory.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        dgvUserHistory.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+        dgvUserHistory.Columns.AddRange(new DataGridViewColumn[] { UserName, FileCount, FolderSize, ParentFolder });
+        dgvUserHistory.Location = new Point(6, 6);
+        dgvUserHistory.Name = "dgvUserHistory";
+        dgvUserHistory.RowHeadersWidth = 42;
+        dgvUserHistory.Size = new Size(1031, 959);
+        dgvUserHistory.TabIndex = 3;
+        // 
+        // btnCopyToVideoTab
+        // 
+        btnCopyToVideoTab.Location = new Point(1043, 46);
+        btnCopyToVideoTab.Name = "btnCopyToVideoTab";
+        btnCopyToVideoTab.Size = new Size(325, 34);
+        btnCopyToVideoTab.TabIndex = 2;
+        btnCopyToVideoTab.Text = "Copy to Video Tab";
+        btnCopyToVideoTab.UseVisualStyleBackColor = true;
+        // 
+        // btnCopyToDownloadTab
+        // 
+        btnCopyToDownloadTab.Location = new Point(1043, 6);
+        btnCopyToDownloadTab.Name = "btnCopyToDownloadTab";
+        btnCopyToDownloadTab.Size = new Size(325, 34);
+        btnCopyToDownloadTab.TabIndex = 1;
+        btnCopyToDownloadTab.Text = "Copy to Download Tab";
+        btnCopyToDownloadTab.UseVisualStyleBackColor = true;
+        // 
         // label2
         // 
         label2.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -493,6 +551,46 @@ partial class MainForm
         txtTargetFolder.Name = "txtTargetFolder";
         txtTargetFolder.Size = new Size(485, 30);
         txtTargetFolder.TabIndex = 27;
+        // 
+        // UserName
+        // 
+        UserName.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
+        UserName.Frozen = true;
+        UserName.HeaderText = "User Name";
+        UserName.MinimumWidth = 8;
+        UserName.Name = "UserName";
+        UserName.ReadOnly = true;
+        UserName.Width = 141;
+        // 
+        // FileCount
+        // 
+        FileCount.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
+        FileCount.Frozen = true;
+        FileCount.HeaderText = "File Count";
+        FileCount.MinimumWidth = 8;
+        FileCount.Name = "FileCount";
+        FileCount.ReadOnly = true;
+        FileCount.Width = 133;
+        // 
+        // FolderSize
+        // 
+        FolderSize.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
+        FolderSize.Frozen = true;
+        FolderSize.HeaderText = "Folder Size";
+        FolderSize.MinimumWidth = 8;
+        FolderSize.Name = "FolderSize";
+        FolderSize.ReadOnly = true;
+        FolderSize.Width = 140;
+        // 
+        // ParentFolder
+        // 
+        ParentFolder.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
+        ParentFolder.Frozen = true;
+        ParentFolder.HeaderText = "Parent Folder";
+        ParentFolder.MinimumWidth = 8;
+        ParentFolder.Name = "ParentFolder";
+        ParentFolder.ReadOnly = true;
+        ParentFolder.Width = 162;
         // 
         // MainForm
         // 
@@ -512,6 +610,8 @@ partial class MainForm
         DownloadPage.PerformLayout();
         tabPage2.ResumeLayout(false);
         tabPage2.PerformLayout();
+        tabPage1.ResumeLayout(false);
+        ((System.ComponentModel.ISupportInitialize)dgvUserHistory).EndInit();
         ResumeLayout(false);
         PerformLayout();
     }
@@ -556,4 +656,12 @@ partial class MainForm
     private Button btnSetUserNameTextByRating;
     private Button btnMoveUsersToRating;
     private Button btnCompressInfo;
+    private TabPage tabPage1;
+    private Button btnCopyToVideoTab;
+    private Button btnCopyToDownloadTab;
+    private DataGridView dgvUserHistory;
+    private DataGridViewTextBoxColumn UserName;
+    private DataGridViewTextBoxColumn FileCount;
+    private DataGridViewTextBoxColumn FolderSize;
+    private DataGridViewTextBoxColumn ParentFolder;
 }

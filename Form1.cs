@@ -1,7 +1,6 @@
 using CivitaiImageDownloader.Models;
 using CivitaiImageDownloader.Util;
 using System.Diagnostics;
-using static System.Net.Mime.MediaTypeNames;
 using Utils = CivitaiImageDownloader.Util.Utils;
 
 namespace CivitaiImageDownloader;
@@ -14,6 +13,7 @@ public partial class MainForm : Form
 
     private bool _stopping = false;
     private VideoCompressor? videoCompressor;
+    private List<UserMeta> downloadedUserMeta = new();
 
     public MainForm()
     {
@@ -296,7 +296,10 @@ public partial class MainForm : Form
             return null;
         }
 
-        return new DownloadParameters(targetFolder, "", userNames, nsfwLevels, mediaType, chbAlwaysDownloadLatest.Checked);
+        var p = new DownloadParameters(targetFolder, "", userNames,
+            nsfwLevels, mediaType, chbAlwaysDownloadLatest.Checked);
+        p.DownloadedUserMeta = downloadedUserMeta;
+        return p;
     }
 
     private void AddMessage(string message)

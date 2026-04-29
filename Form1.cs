@@ -15,11 +15,62 @@ public partial class MainForm : Form
     private VideoCompressor? videoCompressor;
     private List<UserMeta> downloadedUserMeta = new();
 
-    public MainForm()
+                public MainForm()
     {
         InitializeComponent();
 
         txtTargetFolder.Text = DefaultTargetFolder;
+
+        // Wire up History tab buttons
+        btnCopyToDownloadTab.Click += btnCopyToDownloadTab_Click;
+        btnCopyToVideoTab.Click += btnCopyToVideoTab_Click;
+
+        // Load history when switching to History tab
+        mainTabControl.SelectedIndexChanged += (s, e) =>
+        {
+            if (mainTabControl.SelectedTab == tabPage1)
+            {
+                LoadActionHistory();
+            }
+        };
+    }
+
+    private void LoadActionHistory()
+    {
+        var targetFolder = txtTargetFolder.Text;
+        if (!Directory.Exists(targetFolder))
+            return;
+
+                var entries = CivitaiImageDownloader.Util.UsernameHistoryManager.LoadHistory(targetFolder);
+        listBoxActionHistory.Items.Clear();
+        foreach (var entry in entries)
+        {
+            listBoxActionHistory.Items.Add(entry);
+        }
+    }
+
+    private void RecordDownloadHistory()
+    {
+        var targetFolder = txtTargetFolder.Text;
+        if (!Directory.Exists(targetFolder))
+            return;
+        var usernames = txtUsernames.Text.Trim();
+        if (string.IsNullOrEmpty(usernames))
+            return;
+        CivitaiImageDownloader.Util.UsernameHistoryManager.RecordAction(targetFolder, "Download", usernames);
+        LoadActionHistory();
+    }
+
+    private void RecordVideoHistory()
+    {
+        var targetFolder = txtTargetFolder.Text;
+        if (!Directory.Exists(targetFolder))
+            return;
+        var usernames = txtVideoProcessingUsers.Text.Trim();
+        if (string.IsNullOrEmpty(usernames))
+            return;
+        CivitaiImageDownloader.Util.UsernameHistoryManager.RecordAction(targetFolder, "VideoCompress", usernames);
+        LoadActionHistory();
     }
 
     private async void btnDownload_Click(object sender, EventArgs e)
@@ -55,13 +106,15 @@ public partial class MainForm : Form
             dl.Dispose();
         }
 
-        // print summary
+                // print summary
         AddMessage("====SUMMARY====");
         foreach (var r in Format(_downloadResults))
         {
             AddMessage(r);
         }
         AddMessage("====SUMMARY====");
+
+        RecordDownloadHistory();
     }
 
     private void btnDeleteInfoFiles_Click(object sender, EventArgs e)
@@ -419,9 +472,25 @@ public partial class MainForm : Form
         Clipboard.SetText(string.Join(",", dirNames));
     }
 
-    private void btnCopyFromDownloadTab_Click(object sender, EventArgs e)
+        private void btnCopyFromDownloadTab_Click(object sender, EventArgs e)
     {
         txtVideoProcessingUsers.Text = txtUsernames.Text;
+    }
+
+    private void btnCopyToDownloadTab_Click(object? sender, EventArgs e)
+    {
+        if (listBoxActionHistory.SelectedItem is CivitaiImageDownloader.Models.UsernameHistoryEntry entry)
+        {
+            txtUsernames.Text = entry.UsernamesConcatenated;
+        }
+    }
+
+    private void btnCopyToVideoTab_Click(object? sender, EventArgs e)
+    {
+        if (listBoxActionHistory.SelectedItem is CivitaiImageDownloader.Models.UsernameHistoryEntry entry)
+        {
+            txtVideoProcessingUsers.Text = entry.UsernamesConcatenated;
+        }
     }
 
     private async void btnCompressVideo_Click(object sender, EventArgs e)
@@ -463,6 +532,8 @@ public partial class MainForm : Form
             videoCompressor.Dispose();
         }
         AddVideoProcessingMessage("ALL DONE!");
+
+        RecordVideoHistory();
     }
 
     private void MainForm_DragEnter(object sender, DragEventArgs e)

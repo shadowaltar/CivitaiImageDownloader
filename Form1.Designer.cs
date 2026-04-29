@@ -64,10 +64,12 @@ partial class MainForm
         label4 = new Label();
         txtVideoProcessingUsers = new TextBox();
         btnCompressVideo = new Button();
-        tabPage1 = new TabPage();
+                tabPage1 = new TabPage();
         dgvUserHistory = new DataGridView();
         btnCopyToVideoTab = new Button();
         btnCopyToDownloadTab = new Button();
+        listBoxActionHistory = new ListBox();
+        label5 = new Label();
         label2 = new Label();
         txtTargetFolder = new TextBox();
         UserName = new DataGridViewTextBoxColumn();
@@ -486,12 +488,14 @@ partial class MainForm
         btnCompressVideo.Text = "Compress Video";
         btnCompressVideo.UseVisualStyleBackColor = true;
         btnCompressVideo.Click += btnCompressVideo_Click;
-        // 
+                // 
         // tabPage1
         // 
         tabPage1.Controls.Add(dgvUserHistory);
         tabPage1.Controls.Add(btnCopyToVideoTab);
         tabPage1.Controls.Add(btnCopyToDownloadTab);
+        tabPage1.Controls.Add(listBoxActionHistory);
+        tabPage1.Controls.Add(label5);
         tabPage1.Location = new Point(4, 33);
         tabPage1.Name = "tabPage1";
         tabPage1.Padding = new Padding(3);
@@ -515,6 +519,26 @@ partial class MainForm
         dgvUserHistory.RowHeadersWidth = 42;
         dgvUserHistory.Size = new Size(1031, 959);
         dgvUserHistory.TabIndex = 3;
+        // 
+        // listBoxActionHistory
+        // 
+        listBoxActionHistory.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        listBoxActionHistory.Font = new Font("Cascadia Code", 10F);
+        listBoxActionHistory.FormattingEnabled = true;
+        listBoxActionHistory.ItemHeight = 27;
+        listBoxActionHistory.Location = new Point(1043, 86);
+        listBoxActionHistory.Name = "listBoxActionHistory";
+        listBoxActionHistory.Size = new Size(1197, 871);
+        listBoxActionHistory.TabIndex = 4;
+        // 
+        // label5
+        // 
+        label5.AutoSize = true;
+        label5.Location = new Point(1043, 6);
+        label5.Name = "label5";
+        label5.Size = new Size(115, 24);
+        label5.TabIndex = 5;
+        label5.Text = "Action History";
         // 
         // btnCopyToVideoTab
         // 
@@ -659,7 +683,9 @@ partial class MainForm
     private TabPage tabPage1;
     private Button btnCopyToVideoTab;
     private Button btnCopyToDownloadTab;
-    private DataGridView dgvUserHistory;
+        private DataGridView dgvUserHistory;
+    private ListBox listBoxActionHistory;
+    private Label label5;
     private DataGridViewTextBoxColumn UserName;
     private DataGridViewTextBoxColumn FileCount;
     private DataGridViewTextBoxColumn FolderSize;

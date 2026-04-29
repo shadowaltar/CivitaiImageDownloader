@@ -18,7 +18,7 @@ public class Downloader : IDisposable
     private readonly string _userName;
     private readonly List<string> _nsfwLevels;
     private readonly MediaType _mediaType;
-    private readonly bool _isAlwaysLatestMetaInfo;
+    private readonly bool _skipLatestIndexFetch;
     private readonly HttpClient httpClient = new()
     {
         Timeout = TimeSpan.FromSeconds(15)
@@ -43,7 +43,7 @@ public class Downloader : IDisposable
         _userName = parameters.UserName;
         _nsfwLevels = parameters.NsfwLevels;
         _mediaType = parameters.MediaType;
-        _isAlwaysLatestMetaInfo = parameters.IsAlwaysLatestMetaInfo;
+        _skipLatestIndexFetch = parameters.SkipLatestIndexFetch;
     }
 
     public async Task<DownloadResult> Run()
@@ -135,21 +135,31 @@ public class Downloader : IDisposable
 
     private async Task GetAllMetaInfos(List<MediaMeta> allMetas, string folder)
     {
-        // do not seek from website if info files exists
-
         var existingInfoFiles = Utils.GetInfoFiles(folder);
-        if (!_isAlwaysLatestMetaInfo && existingInfoFiles.Count != 0)
+        var existingIds = new HashSet<int>();
+
+        if (existingInfoFiles.Count != 0)
         {
-            await GetLocalMetaInfo(allMetas, existingInfoFiles);
+            var existingMetas = new List<MediaMeta>();
+            await GetLocalMetaInfo(existingMetas, existingInfoFiles);
+            allMetas.AddRange(existingMetas);
+            foreach (var m in existingMetas)
+                existingIds.Add(m.Id);
+        }
+
+        if (_skipLatestIndexFetch)
+        {
             return;
         }
 
-        // get info from website
-        var count = 0;
+        // get new info from website
+        var allNewItemsJson = new JsonArray();
         var initInfoUrl = $"https://civitai.com/api/v1/images?username={_userName}&period=AllTime&sort=Newest&nsfw={_nsfwLevels.FirstOrDefault()}";
         string infoUrl = initInfoUrl;
+        int pageCount = 0;
+        int totalNewItems = 0;
+        int totalSkippedItems = 0;
 
-        // never in parallel-mode
         while (!ShouldStop)
         {
             try
@@ -160,33 +170,110 @@ public class Downloader : IDisposable
                     RaiseMessage?.Invoke($"Failed to get contents: {infoUrl}.");
                     break;
                 }
-                InfoParseResult? infoParseResult = await ParseAsync(infoContent);
-                if (infoParseResult == null)
+
+                JsonObject? responseObj = JsonNode.Parse(infoContent)?.AsObject();
+                if (responseObj == null)
                     break;
 
-                var (mediaMetas, skippedCount, jObj, thisInfoUrl, nextInfoUrl) = infoParseResult;
-                if (jObj != null)
+                JsonArray? items = responseObj["items"]?.AsArray();
+                if (items == null)
+                    break;
+
+                int newInPage = 0;
+                int skippedInPage = 0;
+
+                foreach (var item in items)
                 {
-                    jObj?.Add(new KeyValuePair<string, JsonNode?>("url", infoUrl));
-                    File.WriteAllText(Path.Combine(folder, $"{count:D4}.json"), jObj?.ToJsonString());
+                    if (ShouldStop)
+                        break;
+
+                    if (item == null)
+                        continue;
+
+                    var id = item.GetInt("id");
+                    if (id > 0 && !existingIds.Contains(id))
+                    {
+                        var cloned = item.DeepClone();
+                        Utils.StripUnwantedFields(cloned);
+                        allNewItemsJson.Add(cloned);
+                        existingIds.Add(id);
+                        newInPage++;
+
+                        var meta = TryParseItemToMeta(item);
+                        if (meta != null)
+                            allMetas.Add(meta);
+                    }
+                    else
+                    {
+                        skippedInPage++;
+                    }
                 }
-                count++;
 
-                RaiseMessage?.Invoke($"Parsed #{count} info url, filtered in {mediaMetas.Count} media urls: {infoUrl}");
-                allMetas.AddRange(mediaMetas);
-                _skippedCount += skippedCount;
+                totalNewItems += newInPage;
+                totalSkippedItems += skippedInPage;
 
-                if (nextInfoUrl == null)
+                var nextPage = responseObj["metadata"]?["nextPage"]?.ToString()?.Replace("\u0026", "&");
+                RaiseMessage?.Invoke($"Page {pageCount}: {newInPage} new, {skippedInPage} already in index");
+
+                if (skippedInPage > 0)
+                {
+                    RaiseMessage?.Invoke($"Hit known items on page {pageCount}, stopping further page fetch.");
                     break;
+                }
 
-                infoUrl = nextInfoUrl!;
+                if (nextPage == null)
+                    break;
+                infoUrl = nextPage;
+                pageCount++;
             }
             catch (Exception e)
             {
                 RaiseMessage?.Invoke($"Error: {e}.");
-                count++;
+                pageCount++;
             }
         }
+
+        RaiseMessage?.Invoke($"New items: {totalNewItems}, skipped (already in index): {totalSkippedItems}");
+
+        if (allNewItemsJson.Count > 0)
+        {
+            var timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            var newIndexFileName = Path.Combine(folder, $"{timestamp}.json");
+            var combinedJson = new JsonObject
+            {
+                ["items"] = allNewItemsJson,
+                ["metadata"] = new JsonObject { ["nextPage"] = null }
+            };
+            File.WriteAllText(newIndexFileName, combinedJson.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            RaiseMessage?.Invoke($"Saved {allNewItemsJson.Count} new items to {timestamp}.json");
+        }
+    }
+
+    private MediaMeta? TryParseItemToMeta(JsonNode? item)
+    {
+        if (item == null)
+            return null;
+
+        var url = item.GetStr("url");
+        if (string.IsNullOrEmpty(url))
+            return null;
+
+        var nsfwLevel = item.GetStr("nsfwLevel");
+        if (!_nsfwLevels.Contains(nsfwLevel))
+        {
+            Interlocked.Increment(ref _skippedCount);
+            return null;
+        }
+
+        return new MediaMeta
+        {
+            Url = url,
+            WebpUrl = url.EndsWith(".mp4") ? url.Replace("original=true", "transcode=false,original=false,optimized=true") : "",
+            NsfwLevel = nsfwLevel,
+            Type = item.GetStr("type"),
+            Id = item.GetInt("id"),
+            PostId = item.GetInt("postId")
+        };
     }
 
     private async Task GetLocalMetaInfo(List<MediaMeta> allMetas, List<string> existingInfoFiles)

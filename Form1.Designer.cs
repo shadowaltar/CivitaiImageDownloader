@@ -370,7 +370,7 @@ partial class MainForm
         chbAlwaysDownloadLatest.Name = "chbAlwaysDownloadLatest";
         chbAlwaysDownloadLatest.Size = new Size(282, 28);
         chbAlwaysDownloadLatest.TabIndex = 29;
-        chbAlwaysDownloadLatest.Text = "Redownload User Index Files";
+        chbAlwaysDownloadLatest.Text = "Skip Fetching Latest Index Info";
         chbAlwaysDownloadLatest.UseVisualStyleBackColor = true;
         // 
         // chbNsfw

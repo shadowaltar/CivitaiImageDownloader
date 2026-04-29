@@ -663,9 +663,21 @@ public partial class MainForm : Form
     private void btnCompressInfo_Click(object sender, EventArgs e)
     {
         var userNames = UserNameHelper.ParseUserNames(txtUsernames);
+        if (userNames.Count == 0)
+            return;
+
+        var targetFolder = txtTargetFolder.Text;
         foreach (var user in userNames)
         {
-
+            var folder = FolderHelper.GetFolder(targetFolder, user);
+            if (string.IsNullOrEmpty(folder))
+            {
+                AddMessage($"Skipping {user}: folder not found");
+                continue;
+            }
+            Utils.CompressInfoFiles(folder);
+            AddMessage($"Compressed info files for {user}");
         }
+        AddMessage("Compress Info Files complete.");
     }
 }

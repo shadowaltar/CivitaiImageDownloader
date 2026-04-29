@@ -25,12 +25,27 @@ public partial class MainForm : Form
         btnCopyToDownloadTab.Click += btnCopyToDownloadTab_Click;
         btnCopyToVideoTab.Click += btnCopyToVideoTab_Click;
 
+        dgvUserHistory.CellFormatting += (s, e) =>
+        {
+            if (e.ColumnIndex == FolderSize.Index && e.Value is double size)
+            {
+                e.Value = size.ToString("F2") + " MB";
+                e.FormattingApplied = true;
+            }
+            else if (e.ColumnIndex == FileCount.Index && e.Value is int count)
+            {
+                e.Value = count.ToString("N0");
+                e.FormattingApplied = true;
+            }
+        };
+
         // Load history when switching to History tab
         mainTabControl.SelectedIndexChanged += (s, e) =>
         {
             if (mainTabControl.SelectedTab == tabPage1)
             {
                 LoadActionHistory();
+                _ = PopulateUserHistory();
             }
         };
     }
@@ -47,6 +62,93 @@ public partial class MainForm : Form
         {
             listBoxActionHistory.Items.Add(entry);
         }
+    }
+
+    private async Task PopulateUserHistory()
+    {
+        var targetFolder = txtTargetFolder.Text.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!Directory.Exists(targetFolder))
+            return;
+
+        var results = await Task.Run(() =>
+        {
+            var list = new List<UserMeta>();
+            var rootName = Path.GetFileName(targetFolder);
+
+            // collect all meta-roots: the target folder and any !-prefixed folders found recursively
+            var metaRoots = new List<string> { targetFolder };
+            void CollectMetaRoots(string folder)
+            {
+                foreach (var dir in Directory.GetDirectories(folder))
+                {
+                    if (Path.GetFileName(dir).StartsWith("!"))
+                    {
+                        metaRoots.Add(dir);
+                        CollectMetaRoots(dir);
+                    }
+                }
+            }
+            CollectMetaRoots(targetFolder);
+
+            // for each meta-root, its immediate non-! subdirectories are user folders
+            foreach (var root in metaRoots)
+            {
+                foreach (var dir in Directory.GetDirectories(root))
+                {
+                    var dirName = Path.GetFileName(dir);
+                    if (dirName.StartsWith("!"))
+                        continue;
+
+                    var meta = BuildUserMeta(dir, root == targetFolder ? rootName : Path.GetFileName(root));
+                    if (meta != null)
+                        list.Add(meta);
+                }
+            }
+
+            list.Sort((a, b) => b.FolderSize.CompareTo(a.FolderSize));
+            return list;
+        });
+
+        Invoke(() =>
+        {
+            dgvUserHistory.Rows.Clear();
+            foreach (var r in results)
+            {
+                dgvUserHistory.Rows.Add(r.UserName, r.FileCount, r.FolderSize, r.ParentFolder);
+            }
+        });
+    }
+
+    private static UserMeta? BuildUserMeta(string folder, string parentFolder)
+    {
+        var allMediaFiles = Directory.GetFiles(folder, "*", SearchOption.AllDirectories)
+            .Where(f =>
+            {
+                // skip files inside !-prefixed directories at any depth
+                var dirPath = Path.GetDirectoryName(f);
+                if (dirPath != null && dirPath.Split(Path.DirectorySeparatorChar).Any(seg => seg.StartsWith("!")))
+                    return false;
+
+                var ext = Path.GetExtension(f).ToLower();
+                if (ext == ".json" || ext == ".txt")
+                    return false;
+                if (Path.GetFileName(f).EndsWith(".json.zip"))
+                    return false;
+                return true;
+            }).ToArray();
+
+        if (allMediaFiles.Length == 0)
+            return null;
+
+        long totalSize = 0;
+        foreach (var f in allMediaFiles)
+        {
+            try { totalSize += new FileInfo(f).Length; }
+            catch { }
+        }
+
+        var folderSizeMB = totalSize / (1024.0 * 1024.0);
+        return new UserMeta(Path.GetFileName(folder), allMediaFiles.Length, folderSizeMB, parentFolder);
     }
 
     private void RecordDownloadHistory()
@@ -86,6 +188,8 @@ public partial class MainForm : Form
             return;
         }
 
+        RecordDownloadHistory();
+
         Downloader? dl = null;
         foreach (var un in parameters.UserNames)
         {
@@ -114,7 +218,7 @@ public partial class MainForm : Form
         }
         AddMessage("====SUMMARY====");
 
-        RecordDownloadHistory();
+        // history already recorded before download started
     }
 
     private void btnDeleteInfoFiles_Click(object sender, EventArgs e)

@@ -43,6 +43,11 @@ public static class UsernameHistoryManager
     public static void RecordAction(string parentOutputFolder, string action, string usernamesConcatenated)
     {
         var entries = LoadHistory(parentOutputFolder);
+        // dedup: if the last entry has the same concatenated usernames, replace it
+        if (entries.Count > 0 && entries[0].UsernamesConcatenated == usernamesConcatenated)
+        {
+            entries.RemoveAt(0);
+        }
         var entry = new UsernameHistoryEntry(
             action,
             DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),

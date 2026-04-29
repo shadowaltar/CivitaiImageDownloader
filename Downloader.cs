@@ -373,11 +373,12 @@ public class Downloader : IDisposable
                     Thread.Sleep(150);
 
                     var jpegPath = path.GetPreferredJpegPath();
-                    await SaveToFile(url, jpegPath, i, totalCount, actualDownloadedCount);
-                    shallRetry = false;
+                    shallRetry = !await SaveToFile(url, jpegPath, i, totalCount);
+                    if (!shallRetry)
+                        Interlocked.Increment(ref actualDownloadedCount);
 
                     // detect and try to convert to webp if it is yuv
-                    var isConverted = await TryConvertFromWebpOrYuv(jpegPath, url, meta.WebpUrl, i, totalCount, actualDownloadedCount);
+                    var isConverted = await TryConvertFromWebpOrYuv(jpegPath, url, meta.WebpUrl, i, totalCount);
                     if (!isConverted && meta.IsImage)
                     {
                         // save as jpg
@@ -404,7 +405,7 @@ public class Downloader : IDisposable
         }
     }
 
-    private async Task<bool> TryConvertFromWebpOrYuv(string path, string url, string webpUrl, int i, int totalCount, int actualDownloadedCount)
+    private async Task<bool> TryConvertFromWebpOrYuv(string path, string url, string webpUrl, int i, int totalCount)
     {
         // detect webp/yuv format
         MediaInfo videoInfo = _ffProbe.GetMediaInfo(path);
@@ -413,7 +414,7 @@ public class Downloader : IDisposable
         {
             // redownload with transcode and non-original params
             File.Delete(path);
-            await SaveToFile(webpUrl, path, i, totalCount, actualDownloadedCount);
+            await SaveToFile(webpUrl, path, i, totalCount);
             RaiseMessage?.Invoke($"[{i}/{totalCount}] IsTranscoded from WEBP: {url} to {path}");
             return true;
         }
@@ -429,7 +430,7 @@ public class Downloader : IDisposable
         File.Move(compressedFile, filePath);
     }
 
-    private async Task SaveToFile(string url, string path, int i, int totalCount, int actualDownloadedCount)
+    private async Task<bool> SaveToFile(string url, string path, int i, int totalCount)
     {
         var startTime = DateTime.Now;
         HttpResponseMessage response = await httpClient.GetAsync(url);
@@ -444,11 +445,12 @@ public class Downloader : IDisposable
         if (length == 0)
         {
             RaiseMessage?.Invoke($"[{elapsed:F4}] [{i}/{totalCount}] [{length}b] [FAILED] Download: {url} to {path}");
+            return false;
         }
         else
         {
             RaiseMessage?.Invoke($"[{elapsed:F4}] [{i}/{totalCount}] [{length}b] Downloaded: {url} to {path}");
-            Interlocked.Increment(ref actualDownloadedCount);
+            return true;
         }
     }
 

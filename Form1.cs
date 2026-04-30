@@ -15,7 +15,7 @@ public partial class MainForm : Form
     private VideoCompressor? videoCompressor;
     private List<UserMeta> downloadedUserMeta = new();
 
-                public MainForm()
+    public MainForm()
     {
         InitializeComponent();
 
@@ -39,6 +39,26 @@ public partial class MainForm : Form
             }
         };
 
+        dgvUserHistory.CellDoubleClick += (s, e) =>
+        {
+            if (e.RowIndex < 0) return;
+            var userName = dgvUserHistory.Rows[e.RowIndex].Cells[UserName.Index].Value?.ToString();
+            if (string.IsNullOrEmpty(userName)) return;
+            var targetFolder = txtTargetFolder.Text;
+            var folder = FolderHelper.GetFolder(targetFolder, userName!);
+            if (!string.IsNullOrEmpty(folder))
+                Process.Start("explorer.exe", folder);
+        };
+
+        listBoxActionHistory.DoubleClick += (s, e) =>
+        {
+            if (listBoxActionHistory.SelectedItem is CivitaiImageDownloader.Models.UsernameHistoryEntry entry)
+            {
+                txtUsernames.Text = entry.UsernamesConcatenated;
+                mainTabControl.SelectedTab = DownloadPage;
+            }
+        };
+
         // Load history when switching to History tab
         mainTabControl.SelectedIndexChanged += (s, e) =>
         {
@@ -56,7 +76,7 @@ public partial class MainForm : Form
         if (!Directory.Exists(targetFolder))
             return;
 
-                var entries = CivitaiImageDownloader.Util.UsernameHistoryManager.LoadHistory(targetFolder);
+        var entries = CivitaiImageDownloader.Util.UsernameHistoryManager.LoadHistory(targetFolder);
         listBoxActionHistory.Items.Clear();
         foreach (var entry in entries)
         {
@@ -73,7 +93,6 @@ public partial class MainForm : Form
         var results = await Task.Run(() =>
         {
             var list = new List<UserMeta>();
-            var rootName = Path.GetFileName(targetFolder);
 
             // collect all meta-roots: the target folder and any !-prefixed folders found recursively
             var metaRoots = new List<string> { targetFolder };
@@ -99,7 +118,7 @@ public partial class MainForm : Form
                     if (dirName.StartsWith("!"))
                         continue;
 
-                    var meta = BuildUserMeta(dir, root == targetFolder ? rootName : Path.GetFileName(root));
+                    var meta = BuildUserMeta(dir, Path.GetFileName(root));
                     if (meta != null)
                         list.Add(meta);
                 }
@@ -210,7 +229,7 @@ public partial class MainForm : Form
             dl.Dispose();
         }
 
-                // print summary
+        // print summary
         AddMessage("====SUMMARY====");
         foreach (var r in Format(_downloadResults))
         {
@@ -576,7 +595,7 @@ public partial class MainForm : Form
         Clipboard.SetText(string.Join(",", dirNames));
     }
 
-        private void btnCopyFromDownloadTab_Click(object sender, EventArgs e)
+    private void btnCopyFromDownloadTab_Click(object sender, EventArgs e)
     {
         txtVideoProcessingUsers.Text = txtUsernames.Text;
     }
@@ -783,5 +802,10 @@ public partial class MainForm : Form
             AddMessage($"Compressed info files for {user}");
         }
         AddMessage("Compress Info Files complete.");
+    }
+
+    private void btnReloadExistingUserList_Click(object sender, EventArgs e)
+    {
+
     }
 }

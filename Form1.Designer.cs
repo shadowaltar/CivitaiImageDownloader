@@ -64,18 +64,20 @@ partial class MainForm
         label4 = new Label();
         txtVideoProcessingUsers = new TextBox();
         btnCompressVideo = new Button();
-                tabPage1 = new TabPage();
+        tabPage1 = new TabPage();
         dgvUserHistory = new DataGridView();
+        UserName = new DataGridViewTextBoxColumn();
+        FileCount = new DataGridViewTextBoxColumn();
+        FolderSize = new DataGridViewTextBoxColumn();
+        ParentFolder = new DataGridViewTextBoxColumn();
         btnCopyToVideoTab = new Button();
         btnCopyToDownloadTab = new Button();
         listBoxActionHistory = new ListBox();
         label5 = new Label();
         label2 = new Label();
         txtTargetFolder = new TextBox();
-        UserName = new DataGridViewTextBoxColumn();
-        FileCount = new DataGridViewTextBoxColumn();
-        FolderSize = new DataGridViewTextBoxColumn();
-        ParentFolder = new DataGridViewTextBoxColumn();
+        label6 = new Label();
+        btnReloadExistingUserList = new Button();
         mainTabControl.SuspendLayout();
         DownloadPage.SuspendLayout();
         tabPage2.SuspendLayout();
@@ -366,9 +368,9 @@ partial class MainForm
         // 
         chbAlwaysDownloadLatest.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         chbAlwaysDownloadLatest.AutoSize = true;
-        chbAlwaysDownloadLatest.Location = new Point(1958, 78);
+        chbAlwaysDownloadLatest.Location = new Point(1941, 78);
         chbAlwaysDownloadLatest.Name = "chbAlwaysDownloadLatest";
-        chbAlwaysDownloadLatest.Size = new Size(282, 28);
+        chbAlwaysDownloadLatest.Size = new Size(299, 28);
         chbAlwaysDownloadLatest.TabIndex = 29;
         chbAlwaysDownloadLatest.Text = "Skip Fetching Latest Index Info";
         chbAlwaysDownloadLatest.UseVisualStyleBackColor = true;
@@ -488,9 +490,11 @@ partial class MainForm
         btnCompressVideo.Text = "Compress Video";
         btnCompressVideo.UseVisualStyleBackColor = true;
         btnCompressVideo.Click += btnCompressVideo_Click;
-                // 
+        // 
         // tabPage1
         // 
+        tabPage1.Controls.Add(btnReloadExistingUserList);
+        tabPage1.Controls.Add(label6);
         tabPage1.Controls.Add(dgvUserHistory);
         tabPage1.Controls.Add(btnCopyToVideoTab);
         tabPage1.Controls.Add(btnCopyToDownloadTab);
@@ -514,67 +518,11 @@ partial class MainForm
         dgvUserHistory.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
         dgvUserHistory.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
         dgvUserHistory.Columns.AddRange(new DataGridViewColumn[] { UserName, FileCount, FolderSize, ParentFolder });
-        dgvUserHistory.Location = new Point(6, 6);
+        dgvUserHistory.Location = new Point(6, 73);
         dgvUserHistory.Name = "dgvUserHistory";
         dgvUserHistory.RowHeadersWidth = 42;
-        dgvUserHistory.Size = new Size(1031, 959);
+        dgvUserHistory.Size = new Size(1031, 868);
         dgvUserHistory.TabIndex = 3;
-        // 
-        // listBoxActionHistory
-        // 
-        listBoxActionHistory.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        listBoxActionHistory.Font = new Font("Cascadia Code", 10F);
-        listBoxActionHistory.FormattingEnabled = true;
-        listBoxActionHistory.ItemHeight = 27;
-        listBoxActionHistory.Location = new Point(1043, 86);
-        listBoxActionHistory.Name = "listBoxActionHistory";
-        listBoxActionHistory.Size = new Size(1197, 871);
-        listBoxActionHistory.TabIndex = 4;
-        // 
-        // label5
-        // 
-        label5.AutoSize = true;
-        label5.Location = new Point(1043, 6);
-        label5.Name = "label5";
-        label5.Size = new Size(115, 24);
-        label5.TabIndex = 5;
-        label5.Text = "Action History";
-        // 
-        // btnCopyToVideoTab
-        // 
-        btnCopyToVideoTab.Location = new Point(1043, 46);
-        btnCopyToVideoTab.Name = "btnCopyToVideoTab";
-        btnCopyToVideoTab.Size = new Size(325, 34);
-        btnCopyToVideoTab.TabIndex = 2;
-        btnCopyToVideoTab.Text = "Copy to Video Tab";
-        btnCopyToVideoTab.UseVisualStyleBackColor = true;
-        // 
-        // btnCopyToDownloadTab
-        // 
-        btnCopyToDownloadTab.Location = new Point(1043, 6);
-        btnCopyToDownloadTab.Name = "btnCopyToDownloadTab";
-        btnCopyToDownloadTab.Size = new Size(325, 34);
-        btnCopyToDownloadTab.TabIndex = 1;
-        btnCopyToDownloadTab.Text = "Copy to Download Tab";
-        btnCopyToDownloadTab.UseVisualStyleBackColor = true;
-        // 
-        // label2
-        // 
-        label2.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        label2.AutoSize = true;
-        label2.Location = new Point(1570, 9);
-        label2.Name = "label2";
-        label2.Size = new Size(198, 24);
-        label2.TabIndex = 28;
-        label2.Text = "Parent Output Folder:";
-        // 
-        // txtTargetFolder
-        // 
-        txtTargetFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        txtTargetFolder.Location = new Point(1774, 7);
-        txtTargetFolder.Name = "txtTargetFolder";
-        txtTargetFolder.Size = new Size(485, 30);
-        txtTargetFolder.TabIndex = 27;
         // 
         // UserName
         // 
@@ -616,6 +564,81 @@ partial class MainForm
         ParentFolder.ReadOnly = true;
         ParentFolder.Width = 162;
         // 
+        // btnCopyToVideoTab
+        // 
+        btnCopyToVideoTab.Location = new Point(1374, 33);
+        btnCopyToVideoTab.Name = "btnCopyToVideoTab";
+        btnCopyToVideoTab.Size = new Size(325, 34);
+        btnCopyToVideoTab.TabIndex = 2;
+        btnCopyToVideoTab.Text = "Copy to Video Tab";
+        btnCopyToVideoTab.UseVisualStyleBackColor = true;
+        // 
+        // btnCopyToDownloadTab
+        // 
+        btnCopyToDownloadTab.Location = new Point(1043, 33);
+        btnCopyToDownloadTab.Name = "btnCopyToDownloadTab";
+        btnCopyToDownloadTab.Size = new Size(325, 34);
+        btnCopyToDownloadTab.TabIndex = 1;
+        btnCopyToDownloadTab.Text = "Copy to Download Tab";
+        btnCopyToDownloadTab.UseVisualStyleBackColor = true;
+        // 
+        // listBoxActionHistory
+        // 
+        listBoxActionHistory.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        listBoxActionHistory.Font = new Font("Cascadia Code", 10F);
+        listBoxActionHistory.FormattingEnabled = true;
+        listBoxActionHistory.ItemHeight = 27;
+        listBoxActionHistory.Location = new Point(1043, 73);
+        listBoxActionHistory.Name = "listBoxActionHistory";
+        listBoxActionHistory.Size = new Size(1197, 868);
+        listBoxActionHistory.TabIndex = 4;
+        // 
+        // label5
+        // 
+        label5.AutoSize = true;
+        label5.Location = new Point(1043, 6);
+        label5.Name = "label5";
+        label5.Size = new Size(133, 24);
+        label5.TabIndex = 5;
+        label5.Text = "Action History";
+        // 
+        // label2
+        // 
+        label2.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        label2.AutoSize = true;
+        label2.Location = new Point(1570, 9);
+        label2.Name = "label2";
+        label2.Size = new Size(198, 24);
+        label2.TabIndex = 28;
+        label2.Text = "Parent Output Folder:";
+        // 
+        // txtTargetFolder
+        // 
+        txtTargetFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        txtTargetFolder.Location = new Point(1774, 7);
+        txtTargetFolder.Name = "txtTargetFolder";
+        txtTargetFolder.Size = new Size(485, 30);
+        txtTargetFolder.TabIndex = 27;
+        // 
+        // label6
+        // 
+        label6.AutoSize = true;
+        label6.Location = new Point(6, 6);
+        label6.Name = "label6";
+        label6.Size = new Size(128, 24);
+        label6.TabIndex = 6;
+        label6.Text = "Existing Users";
+        // 
+        // btnReloadExistingUserList
+        // 
+        btnReloadExistingUserList.Location = new Point(6, 33);
+        btnReloadExistingUserList.Name = "btnReloadExistingUserList";
+        btnReloadExistingUserList.Size = new Size(325, 34);
+        btnReloadExistingUserList.TabIndex = 7;
+        btnReloadExistingUserList.Text = "Reload";
+        btnReloadExistingUserList.UseVisualStyleBackColor = true;
+        btnReloadExistingUserList.Click += btnReloadExistingUserList_Click;
+        // 
         // MainForm
         // 
         AllowDrop = true;
@@ -635,6 +658,7 @@ partial class MainForm
         tabPage2.ResumeLayout(false);
         tabPage2.PerformLayout();
         tabPage1.ResumeLayout(false);
+        tabPage1.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)dgvUserHistory).EndInit();
         ResumeLayout(false);
         PerformLayout();
@@ -690,4 +714,6 @@ partial class MainForm
     private DataGridViewTextBoxColumn FileCount;
     private DataGridViewTextBoxColumn FolderSize;
     private DataGridViewTextBoxColumn ParentFolder;
+    private Button btnReloadExistingUserList;
+    private Label label6;
 }

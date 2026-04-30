@@ -15,6 +15,14 @@ public partial class MainForm : Form
     private VideoCompressor? videoCompressor;
     private List<UserMeta> downloadedUserMeta = new();
 
+    // Viewer tab controls
+    private TabPage tabPageViewer;
+    private ListBox listBoxViewerUsers;
+    private FlowLayoutPanel flowLayoutPanelViewer;
+    private ProgressBar progressBarViewer;
+    private string? _viewerCurrentUserFolder;
+    private Panel? _selectedViewerTile;
+
     public MainForm()
     {
         InitializeComponent();
@@ -65,9 +73,48 @@ public partial class MainForm : Form
             if (mainTabControl.SelectedTab == tabPage1)
             {
                 LoadActionHistory();
-                _ = PopulateUserHistory();
+                _ = PopulateUserFolderStatus();
+            }
+            else if (mainTabControl.SelectedTab == tabPageViewer)
+            {
+                _ = PopulateViewerUserList();
             }
         };
+
+        // Build Viewer tab
+        tabPageViewer = new TabPage { Text = "Viewer", Size = new Size(2246, 971) };
+        mainTabControl.Controls.Add(tabPageViewer);
+
+        listBoxViewerUsers = new ListBox
+        {
+            Dock = DockStyle.Left,
+            Width = 350,
+            Font = new Font("Cascadia Code", 10F),
+            IntegralHeight = false
+        };
+        listBoxViewerUsers.SelectedIndexChanged += listBoxViewerUsers_SelectedIndexChanged;
+        tabPageViewer.Controls.Add(listBoxViewerUsers);
+
+        flowLayoutPanelViewer = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            AutoScroll = true,
+            WrapContents = true,
+            FlowDirection = FlowDirection.LeftToRight,
+            BackColor = SystemColors.ControlDark,
+            Padding = new Padding(2),
+            AutoScrollMargin = new Size(0, 0)
+        };
+        tabPageViewer.Controls.Add(flowLayoutPanelViewer);
+
+        progressBarViewer = new ProgressBar
+        {
+            Dock = DockStyle.Bottom,
+            Height = 4,
+            Visible = false,
+            Style = ProgressBarStyle.Continuous
+        };
+        tabPageViewer.Controls.Add(progressBarViewer);
     }
 
     private void LoadActionHistory()
@@ -84,8 +131,11 @@ public partial class MainForm : Form
         }
     }
 
-    private async Task PopulateUserHistory()
+    private async Task PopulateUserFolderStatus()
     {
+        btnReloadExistingUserList.Enabled = false;
+        try
+        {
         var targetFolder = txtTargetFolder.Text.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         if (!Directory.Exists(targetFolder))
             return;
@@ -136,6 +186,11 @@ public partial class MainForm : Form
                 dgvUserHistory.Rows.Add(r.UserName, r.FileCount, r.FolderSize, r.ParentFolder);
             }
         });
+        }
+        finally
+        {
+            Invoke(() => btnReloadExistingUserList.Enabled = true);
+        }
     }
 
     private static UserMeta? BuildUserMeta(string folder, string parentFolder)
@@ -806,6 +861,232 @@ public partial class MainForm : Form
 
     private void btnReloadExistingUserList_Click(object sender, EventArgs e)
     {
+        _ = PopulateUserFolderStatus();
+    }
 
+    private async Task PopulateViewerUserList()
+    {
+        var targetFolder = txtTargetFolder.Text.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (!Directory.Exists(targetFolder))
+            return;
+
+        var users = await Task.Run(() =>
+        {
+            var metaRoots = new List<string> { targetFolder };
+            void CollectMetaRoots(string folder)
+            {
+                foreach (var dir in Directory.GetDirectories(folder))
+                {
+                    if (Path.GetFileName(dir).StartsWith("!"))
+                    {
+                        metaRoots.Add(dir);
+                        CollectMetaRoots(dir);
+                    }
+                }
+            }
+            CollectMetaRoots(targetFolder);
+
+            var userList = new List<string>();
+            foreach (var root in metaRoots)
+            {
+                foreach (var dir in Directory.GetDirectories(root))
+                {
+                    var dirName = Path.GetFileName(dir);
+                    if (dirName.StartsWith("!"))
+                        continue;
+                    userList.Add(dirName);
+                }
+            }
+            userList.Sort();
+            return userList;
+        });
+
+        Invoke(() =>
+        {
+            listBoxViewerUsers.Items.Clear();
+            foreach (var u in users)
+                listBoxViewerUsers.Items.Add(u);
+        });
+    }
+
+    private async void listBoxViewerUsers_SelectedIndexChanged(object? sender, EventArgs e)
+    {
+        if (listBoxViewerUsers.SelectedItem is not string userName)
+            return;
+
+        var targetFolder = txtTargetFolder.Text.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var folder = FolderHelper.GetFolder(targetFolder, userName);
+        if (string.IsNullOrEmpty(folder))
+            return;
+
+        _viewerCurrentUserFolder = folder;
+        flowLayoutPanelViewer.Controls.Clear();
+        flowLayoutPanelViewer.AutoScrollPosition = Point.Empty;
+
+        // show loading indicator
+        var loadingLabel = new Label
+        {
+            Text = "Loading...",
+            AutoSize = true,
+            ForeColor = Color.Gray,
+            Font = new Font("Segoe UI", 10F)
+        };
+        flowLayoutPanelViewer.Controls.Add(loadingLabel);
+        progressBarViewer.Visible = true;
+
+        var files = await Task.Run(() =>
+        {
+            return Directory.GetFiles(folder, "*", SearchOption.AllDirectories)
+                .Where(f =>
+                {
+                    var dirPath = Path.GetDirectoryName(f);
+                    if (dirPath != null && dirPath.Split(Path.DirectorySeparatorChar).Any(seg => seg.StartsWith("!")))
+                        return false;
+                    var ext = Path.GetExtension(f).ToLower();
+                    return ext switch
+                    {
+                        ".jpg" or ".jpeg" or ".png" or ".gif" or ".bmp" or ".webp" or ".mp4" or ".webm" or ".mov" or ".avi" => true,
+                        _ => false
+                    };
+                })
+                .ToList();
+        });
+
+        flowLayoutPanelViewer.Controls.Clear();
+        if (files.Count == 0)
+        {
+            flowLayoutPanelViewer.Controls.Add(new Label { Text = "No media files found.", AutoSize = true, ForeColor = Color.Gray });
+            progressBarViewer.Visible = false;
+            return;
+        }
+
+        progressBarViewer.Maximum = files.Count;
+        progressBarViewer.Value = 0;
+
+        int index = 0;
+        foreach (var file in files)
+        {
+            // load thumbnail image on background thread
+            Image? thumb = null;
+            bool isVideo = IsVideoFile(file);
+            if (!isVideo)
+            {
+                thumb = await Task.Run(() => LoadThumbnailImage(file));
+            }
+
+            var tile = CreateThumbnailTile(file, isVideo, thumb);
+            flowLayoutPanelViewer.Controls.Add(tile);
+            index++;
+            progressBarViewer.Value = index;
+            if (index % 5 == 0)
+                await Task.Delay(1);
+        }
+        flowLayoutPanelViewer.AutoScrollPosition = Point.Empty;
+        progressBarViewer.Visible = false;
+    }
+
+    private static bool IsVideoFile(string filePath)
+    {
+        return Path.GetExtension(filePath).ToLower() switch
+        {
+            ".mp4" or ".webm" or ".mov" or ".avi" => true,
+            _ => false
+        };
+    }
+
+    private static Image? LoadThumbnailImage(string filePath)
+    {
+        try
+        {
+            using var img = Image.FromFile(filePath);
+            return img.GetThumbnailImage(176, 150, null, IntPtr.Zero);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private Panel CreateThumbnailTile(string filePath, bool isVideo, Image? thumbnail)
+    {
+        // 4:3 ratio tile: width 180, height 240
+        var panel = new Panel
+        {
+            Size = new Size(180, 240),
+            Margin = new Padding(4),
+            BackColor = Color.White,
+            Tag = filePath
+        };
+
+        var pictureBox = new PictureBox
+        {
+            Size = new Size(176, 150),
+            Location = new Point(2, 2),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Black
+        };
+
+        if (isVideo)
+        {
+            pictureBox.BackColor = Color.FromArgb(40, 40, 40);
+            using var font = new Font("Segoe UI", 24F, FontStyle.Bold);
+            using var bmp = new Bitmap(176, 150);
+            using var g = Graphics.FromImage(bmp);
+            g.Clear(Color.FromArgb(40, 40, 40));
+            g.DrawString("VIDEO", font, Brushes.White, new PointF(20, 55));
+            pictureBox.Image = new Bitmap(bmp);
+        }
+        else if (thumbnail != null)
+        {
+            pictureBox.Image = thumbnail;
+        }
+        else
+        {
+            pictureBox.BackColor = Color.Gray;
+        }
+
+        var label = new Label
+        {
+            Text = Path.GetFileName(filePath),
+            Size = new Size(176, 84),
+            Location = new Point(2, 154),
+            TextAlign = ContentAlignment.TopCenter,
+            AutoEllipsis = true,
+            Font = new Font("Segoe UI", 8F)
+        };
+
+        panel.Controls.Add(pictureBox);
+        panel.Controls.Add(label);
+
+        panel.Click += (s, e) =>
+        {
+            if (_selectedViewerTile != null && _selectedViewerTile != panel)
+            {
+                _selectedViewerTile.Invalidate();
+            }
+            _selectedViewerTile = panel;
+            panel.Invalidate();
+        };
+        panel.Paint += (s, e) =>
+        {
+            if (_selectedViewerTile == panel)
+            {
+                using var pen = new Pen(Color.DodgerBlue, 3);
+                e.Graphics.DrawRectangle(pen, 1, 1, panel.Width - 3, panel.Height - 3);
+            }
+        };
+
+        pictureBox.DoubleClick += (s, e) =>
+        {
+            try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); }
+            catch { }
+        };
+        panel.DoubleClick += (s, e) =>
+        {
+            try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); }
+            catch { }
+        };
+
+        return panel;
     }
 }

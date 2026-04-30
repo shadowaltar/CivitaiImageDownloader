@@ -175,21 +175,21 @@ public class VideoCompressor : IDisposable
         {
             return (VideoCompressResult.SkippedFileSizeTooSmall, oldDimension, oldDimension);
         }
-        if (videoWidth == 500 || videoHeight == 500)
+        if (videoWidth == 640 || videoHeight == 640)
         {
             return (VideoCompressResult.SkippedDimensionTooSmall, oldDimension, oldDimension);
         }
-        if (newVideoWidth <= 500 || newVideoHeight <= 500)
+        if (newVideoWidth <= 640 || newVideoHeight <= 640)
         {
             var ratio = videoWidth / (double)videoHeight;
-            if (newVideoWidth <= 500)
+            if (newVideoWidth <= 640)
             {
-                newVideoWidth = 500;
+                newVideoWidth = 640;
                 newVideoHeight = toEven(newVideoWidth / ratio);
             }
             else
             {
-                newVideoHeight = 500;
+                newVideoHeight = 640;
                 newVideoWidth = toEven(newVideoHeight * ratio);
             }
         }

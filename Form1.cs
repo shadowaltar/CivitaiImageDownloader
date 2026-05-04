@@ -23,10 +23,16 @@ public partial class MainForm : Form
 
         // wire mediator events
         _mediator.TabSwitchToDownloadRequested += () => mainTabControl.SelectedTab = DownloadPage;
+        _mediator.TabSwitchToVideoRequested += () => mainTabControl.SelectedTab = tabPage2;
         _mediator.UsernamesCopiedToDownload += usernames =>
         {
             mainTabControl.SelectedTab = DownloadPage;
             if (_downloadTab != null) _downloadTab.txtUsernames.Text = usernames;
+        };
+        _mediator.UsernamesCopiedToVideo += usernames =>
+        {
+            mainTabControl.SelectedTab = tabPage2;
+            _videoTab?.Invoke(() => { });
         };
 
         // create tab controls

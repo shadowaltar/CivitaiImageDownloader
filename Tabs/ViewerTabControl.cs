@@ -9,12 +9,51 @@ public partial class ViewerTabControl : UserControl
     private readonly AppMediator _mediator;
     private Panel? _selectedViewerTile;
     private CancellationTokenSource? _loadCts;
+    private float _zoomFactor = 1.0f;
 
     public ViewerTabControl(AppMediator mediator)
     {
         _mediator = mediator;
         InitializeComponent();
         listBoxViewerUsers.SelectedIndexChanged += listBoxViewerUsers_SelectedIndexChanged;
+        listBoxViewerUsers.MouseDown += (s, e) =>
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                var index = listBoxViewerUsers.IndexFromPoint(e.Location);
+                if (index != ListBox.NoMatches)
+                    listBoxViewerUsers.SelectedIndex = index;
+            }
+        };
+
+        var ctxMenu = new ContextMenuStrip();
+        var itemDownload = new ToolStripMenuItem("Show in Download Tab");
+        itemDownload.Click += (s, e) =>
+        {
+            if (listBoxViewerUsers.SelectedItem is string user)
+                _mediator.CopyUsernamesToDownload(user);
+        };
+        var itemVideo = new ToolStripMenuItem("Show in Video Tab");
+        itemVideo.Click += (s, e) =>
+        {
+            if (listBoxViewerUsers.SelectedItem is string user)
+            {
+                _mediator.CopyUsernamesToVideo(user);
+                _mediator.RequestSwitchToVideoTab();
+            }
+        };
+        ctxMenu.Items.Add(itemDownload);
+        ctxMenu.Items.Add(itemVideo);
+        listBoxViewerUsers.ContextMenuStrip = ctxMenu;
+
+        flowLayoutPanelViewer.MouseWheel += (s, e) =>
+        {
+            if (ModifierKeys.HasFlag(Keys.Control))
+            {
+                _zoomFactor = Math.Clamp(_zoomFactor + (e.Delta > 0 ? 0.1f : -0.1f), 0.3f, 3.0f);
+                ApplyZoomToTiles();
+            }
+        };
     }
 
     public async Task PopulateViewerUserList()
@@ -133,22 +172,32 @@ public partial class ViewerTabControl : UserControl
         progressBarViewer.Value = 0;
 
         int index = 0;
-        foreach (var file in files)
+        const int batchSize = 8;
+        for (int i = 0; i < files.Count; i += batchSize)
         {
             if (token.IsCancellationRequested) return;
 
-            Image? thumb = null;
-            bool isVideo = IsVideoFile(file);
-            if (isVideo)
-                thumb = await Task.Run(() => LoadVideoThumbnail(file), token);
-            else
-                thumb = await Task.Run(() => LoadThumbnailImage(file), token);
+            var batch = files.Skip(i).Take(batchSize).Select(async file =>
+            {
+                bool isVideo = IsVideoFile(file);
+                Image? thumb = isVideo
+                    ? await Task.Run(() => LoadVideoThumbnail(file), token)
+                    : await Task.Run(() => LoadThumbnailImage(file), token);
+                return (file, isVideo, thumb);
+            }).ToArray();
 
-            var tile = CreateThumbnailTile(file, isVideo, thumb);
-            flowLayoutPanelViewer.Controls.Add(tile);
-            index++;
-            progressBarViewer.Value = index;
-            if (index % 5 == 0)
+            var results = await Task.WhenAll(batch);
+
+            foreach (var (file, isVideo, thumb) in results)
+            {
+                if (token.IsCancellationRequested) return;
+                var tile = CreateThumbnailTile(file, isVideo, thumb);
+                flowLayoutPanelViewer.Controls.Add(tile);
+                index++;
+                progressBarViewer.Value = index;
+            }
+
+            if (i + batchSize < files.Count)
                 await Task.Delay(1);
         }
         flowLayoutPanelViewer.AutoScrollPosition = Point.Empty;
@@ -167,18 +216,40 @@ public partial class ViewerTabControl : UserControl
         catch { return null; }
     }
 
+    private void ApplyZoomToTiles()
+    {
+        flowLayoutPanelViewer.SuspendLayout();
+        foreach (Panel tile in flowLayoutPanelViewer.Controls.OfType<Panel>())
+        {
+            var z = _zoomFactor;
+            tile.Size = new Size((int)(180 * z), (int)(240 * z));
+            if (tile.Controls.Count >= 2)
+            {
+                var pb = tile.Controls[0];
+                pb.Size = new Size((int)(132 * z), (int)(176 * z));
+                pb.Location = new Point((int)(21 * z), (int)(2 * z));
+                var lbl = tile.Controls[1];
+                lbl.Size = new Size((int)(174 * z), (int)(53 * z));
+                lbl.Location = new Point(0, (int)(181 * z));
+                lbl.Font = new Font("Segoe UI", Math.Max(6, 8 * z));
+            }
+        }
+        flowLayoutPanelViewer.ResumeLayout();
+    }
+
     private Panel CreateThumbnailTile(string filePath, bool isVideo, Image? thumbnail)
     {
-        // tile: 180x240, image: 132x176 (w:h = 3:4), 3px border via padding
-        var panel = new Panel { Size = new Size(180, 240), Margin = new Padding(4), BackColor = Color.White, Tag = filePath, Padding = new Padding(3) };
-        var pictureBox = new PictureBox { Size = new Size(132, 176), Location = new Point(21, 2), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
+        var z = _zoomFactor;
+        // tile: 180x240 * z, image: 132x176 * z (w:h = 3:4), 3px border via padding
+        var panel = new Panel { Size = new Size((int)(180 * z), (int)(240 * z)), Margin = new Padding(4), BackColor = Color.White, Tag = filePath, Padding = new Padding(3) };
+        var pictureBox = new PictureBox { Size = new Size((int)(132 * z), (int)(176 * z)), Location = new Point((int)(21 * z), (int)(2 * z)), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
 
         if (thumbnail != null)
             pictureBox.Image = thumbnail;
         else
             pictureBox.BackColor = Color.Gray;
 
-        var label = new Label { Text = Path.GetFileName(filePath), Size = new Size(174, 53), Location = new Point(0, 181), TextAlign = ContentAlignment.TopCenter, AutoEllipsis = true, Font = new Font("Segoe UI", 8F) };
+        var label = new Label { Text = Path.GetFileName(filePath), Size = new Size((int)(174 * z), (int)(53 * z)), Location = new Point(0, (int)(181 * z)), TextAlign = ContentAlignment.TopCenter, AutoEllipsis = true, Font = new Font("Segoe UI", Math.Max(6, 8 * z)) };
 
         panel.Controls.Add(pictureBox);
         panel.Controls.Add(label);

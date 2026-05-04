@@ -20,6 +20,7 @@ public class AppMediator
     public event Action<string>? UsernamesCopiedToDownload;
     public event Action<string>? UsernamesCopiedToVideo;
     public event Action? TabSwitchToDownloadRequested;
+    public event Action? TabSwitchToVideoRequested;
 
     public void LogMessage(string message)
     {
@@ -51,5 +52,10 @@ public class AppMediator
     public void RequestSwitchToDownloadTab()
     {
         TabSwitchToDownloadRequested?.Invoke();
+    }
+
+    public void RequestSwitchToVideoTab()
+    {
+        TabSwitchToVideoRequested?.Invoke();
     }
 }

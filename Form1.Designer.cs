@@ -2,87 +2,25 @@
 
 partial class MainForm
 {
-    /// <summary>
-    ///  Required designer variable.
-    /// </summary>
     private System.ComponentModel.IContainer components = null;
 
-    /// <summary>
-    ///  Clean up any resources being used.
-    /// </summary>
-    /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
     protected override void Dispose(bool disposing)
     {
         if (disposing && (components != null))
-        {
             components.Dispose();
-        }
         base.Dispose(disposing);
     }
 
-    #region Windows Form Designer generated code
-
-    /// <summary>
-    ///  Required method for Designer support - do not modify
-    ///  the contents of this method with the code editor.
-    /// </summary>
     private void InitializeComponent()
     {
         mainTabControl = new TabControl();
         DownloadPage = new TabPage();
-        btnCompressInfo = new Button();
-        btnSetUserNameTextByRating = new Button();
-        btnMoveUsersToRating = new Button();
-        chb6Star = new CheckBox();
-        chb5Star = new CheckBox();
-        chb4p5Star = new CheckBox();
-        chb4Star = new CheckBox();
-        chb3Star = new CheckBox();
-        label3 = new Label();
-        btnOpenAllUserFolders = new Button();
-        btnCopyAllSubdirNames = new Button();
-        lblDownloadingCounter = new Label();
-        btnStop = new Button();
-        btnMarkDeletedFilesNoRedownload = new Button();
-        chbDownloadImage = new CheckBox();
-        btnOpenFirstUserFolder = new Button();
-        btnCopyFailedUrls = new Button();
-        btnDeleteInfoFiles = new Button();
-        chbDownloadVideo = new CheckBox();
-        chbChildLevel = new CheckBox();
-        chbNormal = new CheckBox();
-        chbMature = new CheckBox();
-        chbAlwaysDownloadLatest = new CheckBox();
-        chbNsfw = new CheckBox();
-        listBoxMessages = new ListBox();
-        btnDownload = new Button();
-        label1 = new Label();
-        txtUsernames = new TextBox();
         tabPage2 = new TabPage();
-        listBoxVideoProcessingMessages = new ListBox();
-        btnCopyFromDownloadTab = new Button();
-        label4 = new Label();
-        txtVideoProcessingUsers = new TextBox();
-        btnCompressVideo = new Button();
         tabPage1 = new TabPage();
-        dgvUserHistory = new DataGridView();
-        UserName = new DataGridViewTextBoxColumn();
-        FileCount = new DataGridViewTextBoxColumn();
-        FolderSize = new DataGridViewTextBoxColumn();
-        ParentFolder = new DataGridViewTextBoxColumn();
-        btnCopyToVideoTab = new Button();
-        btnCopyToDownloadTab = new Button();
-        listBoxActionHistory = new ListBox();
-        label5 = new Label();
+        tabPageViewer = new TabPage();
         label2 = new Label();
         txtTargetFolder = new TextBox();
-        label6 = new Label();
-        btnReloadExistingUserList = new Button();
         mainTabControl.SuspendLayout();
-        DownloadPage.SuspendLayout();
-        tabPage2.SuspendLayout();
-        tabPage1.SuspendLayout();
-        ((System.ComponentModel.ISupportInitialize)dgvUserHistory).BeginInit();
         SuspendLayout();
         // 
         // mainTabControl
@@ -91,6 +29,7 @@ partial class MainForm
         mainTabControl.Controls.Add(DownloadPage);
         mainTabControl.Controls.Add(tabPage2);
         mainTabControl.Controls.Add(tabPage1);
+        mainTabControl.Controls.Add(tabPageViewer);
         mainTabControl.Location = new Point(12, 12);
         mainTabControl.Name = "mainTabControl";
         mainTabControl.SelectedIndex = 0;
@@ -99,514 +38,45 @@ partial class MainForm
         // 
         // DownloadPage
         // 
-        DownloadPage.Controls.Add(btnCompressInfo);
-        DownloadPage.Controls.Add(btnSetUserNameTextByRating);
-        DownloadPage.Controls.Add(btnMoveUsersToRating);
-        DownloadPage.Controls.Add(chb6Star);
-        DownloadPage.Controls.Add(chb5Star);
-        DownloadPage.Controls.Add(chb4p5Star);
-        DownloadPage.Controls.Add(chb4Star);
-        DownloadPage.Controls.Add(chb3Star);
-        DownloadPage.Controls.Add(label3);
-        DownloadPage.Controls.Add(btnOpenAllUserFolders);
-        DownloadPage.Controls.Add(btnCopyAllSubdirNames);
-        DownloadPage.Controls.Add(lblDownloadingCounter);
-        DownloadPage.Controls.Add(btnStop);
-        DownloadPage.Controls.Add(btnMarkDeletedFilesNoRedownload);
-        DownloadPage.Controls.Add(chbDownloadImage);
-        DownloadPage.Controls.Add(btnOpenFirstUserFolder);
-        DownloadPage.Controls.Add(btnCopyFailedUrls);
-        DownloadPage.Controls.Add(btnDeleteInfoFiles);
-        DownloadPage.Controls.Add(chbDownloadVideo);
-        DownloadPage.Controls.Add(chbChildLevel);
-        DownloadPage.Controls.Add(chbNormal);
-        DownloadPage.Controls.Add(chbMature);
-        DownloadPage.Controls.Add(chbAlwaysDownloadLatest);
-        DownloadPage.Controls.Add(chbNsfw);
-        DownloadPage.Controls.Add(listBoxMessages);
-        DownloadPage.Controls.Add(btnDownload);
-        DownloadPage.Controls.Add(label1);
-        DownloadPage.Controls.Add(txtUsernames);
         DownloadPage.Location = new Point(4, 33);
         DownloadPage.Name = "DownloadPage";
         DownloadPage.Padding = new Padding(3);
         DownloadPage.Size = new Size(2246, 971);
         DownloadPage.TabIndex = 0;
         DownloadPage.Text = "Download";
-        DownloadPage.UseVisualStyleBackColor = true;
-        // 
-        // btnCompressInfo
-        // 
-        btnCompressInfo.Location = new Point(1690, 112);
-        btnCompressInfo.Name = "btnCompressInfo";
-        btnCompressInfo.Size = new Size(272, 33);
-        btnCompressInfo.TabIndex = 58;
-        btnCompressInfo.Text = "Compress Info Files";
-        btnCompressInfo.UseVisualStyleBackColor = true;
-        btnCompressInfo.Click += btnCompressInfo_Click;
-        // 
-        // btnSetUserNameTextByRating
-        // 
-        btnSetUserNameTextByRating.Location = new Point(1241, 42);
-        btnSetUserNameTextByRating.Name = "btnSetUserNameTextByRating";
-        btnSetUserNameTextByRating.Size = new Size(200, 62);
-        btnSetUserNameTextByRating.TabIndex = 57;
-        btnSetUserNameTextByRating.Text = "Populate Usernames by Selected Rating";
-        btnSetUserNameTextByRating.UseVisualStyleBackColor = true;
-        // 
-        // btnMoveUsersToRating
-        // 
-        btnMoveUsersToRating.Location = new Point(1035, 42);
-        btnMoveUsersToRating.Name = "btnMoveUsersToRating";
-        btnMoveUsersToRating.Size = new Size(200, 62);
-        btnMoveUsersToRating.TabIndex = 56;
-        btnMoveUsersToRating.Text = "Move Users to Selected Rating";
-        btnMoveUsersToRating.UseVisualStyleBackColor = true;
-        btnMoveUsersToRating.Click += btnMoveUsersToRating_Click;
-        // 
-        // chb6Star
-        // 
-        chb6Star.Appearance = Appearance.Button;
-        chb6Star.Location = new Point(957, 42);
-        chb6Star.Name = "chb6Star";
-        chb6Star.Size = new Size(72, 62);
-        chb6Star.TabIndex = 55;
-        chb6Star.Text = "6 ★";
-        chb6Star.TextAlign = ContentAlignment.MiddleCenter;
-        chb6Star.UseVisualStyleBackColor = true;
-        // 
-        // chb5Star
-        // 
-        chb5Star.Appearance = Appearance.Button;
-        chb5Star.Location = new Point(879, 42);
-        chb5Star.Name = "chb5Star";
-        chb5Star.Size = new Size(72, 62);
-        chb5Star.TabIndex = 54;
-        chb5Star.Text = "5 ★";
-        chb5Star.TextAlign = ContentAlignment.MiddleCenter;
-        chb5Star.UseVisualStyleBackColor = true;
-        // 
-        // chb4p5Star
-        // 
-        chb4p5Star.Appearance = Appearance.Button;
-        chb4p5Star.Location = new Point(801, 42);
-        chb4p5Star.Name = "chb4p5Star";
-        chb4p5Star.Size = new Size(72, 62);
-        chb4p5Star.TabIndex = 53;
-        chb4p5Star.Text = "4.5 ★";
-        chb4p5Star.TextAlign = ContentAlignment.MiddleCenter;
-        chb4p5Star.UseVisualStyleBackColor = true;
-        // 
-        // chb4Star
-        // 
-        chb4Star.Appearance = Appearance.Button;
-        chb4Star.Location = new Point(723, 42);
-        chb4Star.Name = "chb4Star";
-        chb4Star.Size = new Size(72, 62);
-        chb4Star.TabIndex = 52;
-        chb4Star.Text = "4 ★";
-        chb4Star.TextAlign = ContentAlignment.MiddleCenter;
-        chb4Star.UseVisualStyleBackColor = true;
-        // 
-        // chb3Star
-        // 
-        chb3Star.Appearance = Appearance.Button;
-        chb3Star.Location = new Point(645, 42);
-        chb3Star.Name = "chb3Star";
-        chb3Star.Size = new Size(72, 62);
-        chb3Star.TabIndex = 51;
-        chb3Star.Text = "3 ★";
-        chb3Star.TextAlign = ContentAlignment.MiddleCenter;
-        chb3Star.UseVisualStyleBackColor = true;
-        // 
-        // label3
-        // 
-        label3.AutoSize = true;
-        label3.Location = new Point(560, 61);
-        label3.Name = "label3";
-        label3.Size = new Size(79, 24);
-        label3.TabIndex = 50;
-        label3.Text = "Ratings:";
-        // 
-        // btnOpenAllUserFolders
-        // 
-        btnOpenAllUserFolders.Location = new Point(923, 110);
-        btnOpenAllUserFolders.Name = "btnOpenAllUserFolders";
-        btnOpenAllUserFolders.Size = new Size(272, 64);
-        btnOpenAllUserFolders.TabIndex = 44;
-        btnOpenAllUserFolders.Text = "Open All User Folders";
-        btnOpenAllUserFolders.UseVisualStyleBackColor = true;
-        btnOpenAllUserFolders.Click += btnOpenAllUserFolders_Click;
-        // 
-        // btnCopyAllSubdirNames
-        // 
-        btnCopyAllSubdirNames.Location = new Point(1968, 190);
-        btnCopyAllSubdirNames.Name = "btnCopyAllSubdirNames";
-        btnCopyAllSubdirNames.Size = new Size(272, 33);
-        btnCopyAllSubdirNames.TabIndex = 43;
-        btnCopyAllSubdirNames.Text = "Copy All Subdir Names";
-        btnCopyAllSubdirNames.UseVisualStyleBackColor = true;
-        btnCopyAllSubdirNames.Click += btnCopyAllSubdirNames_Click;
-        // 
-        // lblDownloadingCounter
-        // 
-        lblDownloadingCounter.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
-        lblDownloadingCounter.AutoSize = true;
-        lblDownloadingCounter.Location = new Point(2177, 944);
-        lblDownloadingCounter.Name = "lblDownloadingCounter";
-        lblDownloadingCounter.Size = new Size(63, 24);
-        lblDownloadingCounter.TabIndex = 40;
-        lblDownloadingCounter.Text = "label3";
-        lblDownloadingCounter.TextAlign = ContentAlignment.MiddleRight;
-        // 
-        // btnStop
-        // 
-        btnStop.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnStop.Location = new Point(1690, 190);
-        btnStop.Name = "btnStop";
-        btnStop.Size = new Size(272, 33);
-        btnStop.TabIndex = 39;
-        btnStop.Text = "STOP";
-        btnStop.UseVisualStyleBackColor = true;
-        btnStop.Click += btnStop_Click;
-        // 
-        // btnMarkDeletedFilesNoRedownload
-        // 
-        btnMarkDeletedFilesNoRedownload.Location = new Point(284, 110);
-        btnMarkDeletedFilesNoRedownload.Name = "btnMarkDeletedFilesNoRedownload";
-        btnMarkDeletedFilesNoRedownload.Size = new Size(355, 64);
-        btnMarkDeletedFilesNoRedownload.TabIndex = 38;
-        btnMarkDeletedFilesNoRedownload.Text = "Mark Deleted Files No Redownload";
-        btnMarkDeletedFilesNoRedownload.UseVisualStyleBackColor = true;
-        btnMarkDeletedFilesNoRedownload.Click += btnMarkDeletedFilesNoRedownload_Click;
-        // 
-        // chbDownloadImage
-        // 
-        chbDownloadImage.AutoSize = true;
-        chbDownloadImage.Checked = true;
-        chbDownloadImage.CheckState = CheckState.Checked;
-        chbDownloadImage.Location = new Point(391, 76);
-        chbDownloadImage.Name = "chbDownloadImage";
-        chbDownloadImage.Size = new Size(90, 28);
-        chbDownloadImage.TabIndex = 37;
-        chbDownloadImage.Text = "Image";
-        chbDownloadImage.UseVisualStyleBackColor = true;
-        // 
-        // btnOpenFirstUserFolder
-        // 
-        btnOpenFirstUserFolder.Location = new Point(645, 110);
-        btnOpenFirstUserFolder.Name = "btnOpenFirstUserFolder";
-        btnOpenFirstUserFolder.Size = new Size(272, 64);
-        btnOpenFirstUserFolder.TabIndex = 36;
-        btnOpenFirstUserFolder.Text = "Open First User Folder";
-        btnOpenFirstUserFolder.UseVisualStyleBackColor = true;
-        btnOpenFirstUserFolder.Click += btnOpenFirstUserFolder_Click;
-        // 
-        // btnCopyFailedUrls
-        // 
-        btnCopyFailedUrls.Location = new Point(1968, 151);
-        btnCopyFailedUrls.Name = "btnCopyFailedUrls";
-        btnCopyFailedUrls.Size = new Size(272, 33);
-        btnCopyFailedUrls.TabIndex = 35;
-        btnCopyFailedUrls.Text = "Copy Failed Urls";
-        btnCopyFailedUrls.UseVisualStyleBackColor = true;
-        btnCopyFailedUrls.Click += btnCopyFailedUrls_Click;
-        // 
-        // btnDeleteInfoFiles
-        // 
-        btnDeleteInfoFiles.Location = new Point(1968, 112);
-        btnDeleteInfoFiles.Name = "btnDeleteInfoFiles";
-        btnDeleteInfoFiles.Size = new Size(272, 33);
-        btnDeleteInfoFiles.TabIndex = 34;
-        btnDeleteInfoFiles.Text = "Delete Info Files";
-        btnDeleteInfoFiles.UseVisualStyleBackColor = true;
-        btnDeleteInfoFiles.Click += btnDeleteInfoFiles_Click;
-        // 
-        // chbDownloadVideo
-        // 
-        chbDownloadVideo.AutoSize = true;
-        chbDownloadVideo.Checked = true;
-        chbDownloadVideo.CheckState = CheckState.Checked;
-        chbDownloadVideo.Location = new Point(391, 42);
-        chbDownloadVideo.Name = "chbDownloadVideo";
-        chbDownloadVideo.Size = new Size(86, 28);
-        chbDownloadVideo.TabIndex = 33;
-        chbDownloadVideo.Text = "Video";
-        chbDownloadVideo.UseVisualStyleBackColor = true;
-        // 
-        // chbChildLevel
-        // 
-        chbChildLevel.AutoSize = true;
-        chbChildLevel.Location = new Point(242, 76);
-        chbChildLevel.Name = "chbChildLevel";
-        chbChildLevel.Size = new Size(124, 28);
-        chbChildLevel.TabIndex = 32;
-        chbChildLevel.Text = "ChildLevel";
-        chbChildLevel.UseVisualStyleBackColor = true;
-        // 
-        // chbNormal
-        // 
-        chbNormal.AutoSize = true;
-        chbNormal.Location = new Point(108, 76);
-        chbNormal.Name = "chbNormal";
-        chbNormal.Size = new Size(101, 28);
-        chbNormal.TabIndex = 31;
-        chbNormal.Text = "Normal";
-        chbNormal.UseVisualStyleBackColor = true;
-        // 
-        // chbMature
-        // 
-        chbMature.AutoSize = true;
-        chbMature.Location = new Point(242, 42);
-        chbMature.Name = "chbMature";
-        chbMature.Size = new Size(99, 28);
-        chbMature.TabIndex = 30;
-        chbMature.Text = "Mature";
-        chbMature.UseVisualStyleBackColor = true;
-        // 
-        // chbAlwaysDownloadLatest
-        // 
-        chbAlwaysDownloadLatest.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        chbAlwaysDownloadLatest.AutoSize = true;
-        chbAlwaysDownloadLatest.Location = new Point(1941, 78);
-        chbAlwaysDownloadLatest.Name = "chbAlwaysDownloadLatest";
-        chbAlwaysDownloadLatest.Size = new Size(299, 28);
-        chbAlwaysDownloadLatest.TabIndex = 29;
-        chbAlwaysDownloadLatest.Text = "Skip Fetching Latest Index Info";
-        chbAlwaysDownloadLatest.UseVisualStyleBackColor = true;
-        // 
-        // chbNsfw
-        // 
-        chbNsfw.AutoSize = true;
-        chbNsfw.Checked = true;
-        chbNsfw.CheckState = CheckState.Checked;
-        chbNsfw.Location = new Point(108, 42);
-        chbNsfw.Name = "chbNsfw";
-        chbNsfw.Size = new Size(89, 28);
-        chbNsfw.TabIndex = 28;
-        chbNsfw.Text = "NSFW";
-        chbNsfw.UseVisualStyleBackColor = true;
-        // 
-        // listBoxMessages
-        // 
-        listBoxMessages.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        listBoxMessages.Font = new Font("Cascadia Code", 10F);
-        listBoxMessages.FormattingEnabled = true;
-        listBoxMessages.ItemHeight = 27;
-        listBoxMessages.Location = new Point(6, 229);
-        listBoxMessages.Name = "listBoxMessages";
-        listBoxMessages.Size = new Size(2234, 679);
-        listBoxMessages.TabIndex = 24;
-        // 
-        // btnDownload
-        // 
-        btnDownload.Location = new Point(6, 110);
-        btnDownload.Name = "btnDownload";
-        btnDownload.Size = new Size(272, 64);
-        btnDownload.TabIndex = 23;
-        btnDownload.Text = "Download";
-        btnDownload.UseVisualStyleBackColor = true;
-        btnDownload.Click += btnDownload_Click;
-        // 
-        // label1
-        // 
-        label1.AutoSize = true;
-        label1.Location = new Point(6, 9);
-        label1.Name = "label1";
-        label1.Size = new Size(96, 24);
-        label1.TabIndex = 22;
-        label1.Text = "Username";
-        // 
-        // txtUsernames
-        // 
-        txtUsernames.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        txtUsernames.Location = new Point(108, 6);
-        txtUsernames.Name = "txtUsernames";
-        txtUsernames.Size = new Size(2132, 30);
-        txtUsernames.TabIndex = 21;
         // 
         // tabPage2
         // 
-        tabPage2.Controls.Add(listBoxVideoProcessingMessages);
-        tabPage2.Controls.Add(btnCopyFromDownloadTab);
-        tabPage2.Controls.Add(label4);
-        tabPage2.Controls.Add(txtVideoProcessingUsers);
-        tabPage2.Controls.Add(btnCompressVideo);
         tabPage2.Location = new Point(4, 33);
         tabPage2.Name = "tabPage2";
         tabPage2.Padding = new Padding(3);
-        tabPage2.Size = new Size(2246, 971);
+        tabPage2.Size = new Size(2246, 941);
         tabPage2.TabIndex = 1;
-        tabPage2.Text = "Videos";
-        tabPage2.UseVisualStyleBackColor = true;
-        // 
-        // listBoxVideoProcessingMessages
-        // 
-        listBoxVideoProcessingMessages.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        listBoxVideoProcessingMessages.Font = new Font("Cascadia Code", 10F);
-        listBoxVideoProcessingMessages.FormattingEnabled = true;
-        listBoxVideoProcessingMessages.ItemHeight = 27;
-        listBoxVideoProcessingMessages.Location = new Point(6, 120);
-        listBoxVideoProcessingMessages.Name = "listBoxVideoProcessingMessages";
-        listBoxVideoProcessingMessages.Size = new Size(2234, 787);
-        listBoxVideoProcessingMessages.TabIndex = 46;
-        listBoxVideoProcessingMessages.DoubleClick += listBoxVideoProcessingMessages_DoubleClick;
-        // 
-        // btnCopyFromDownloadTab
-        // 
-        btnCopyFromDownloadTab.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnCopyFromDownloadTab.Location = new Point(6, 42);
-        btnCopyFromDownloadTab.Name = "btnCopyFromDownloadTab";
-        btnCopyFromDownloadTab.Size = new Size(216, 72);
-        btnCopyFromDownloadTab.TabIndex = 45;
-        btnCopyFromDownloadTab.Text = "Copy usernames from Download Tab";
-        btnCopyFromDownloadTab.UseVisualStyleBackColor = true;
-        btnCopyFromDownloadTab.Click += btnCopyFromDownloadTab_Click;
-        // 
-        // label4
-        // 
-        label4.AutoSize = true;
-        label4.Location = new Point(6, 9);
-        label4.Name = "label4";
-        label4.Size = new Size(96, 24);
-        label4.TabIndex = 44;
-        label4.Text = "Username";
-        // 
-        // txtVideoProcessingUsers
-        // 
-        txtVideoProcessingUsers.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        txtVideoProcessingUsers.Location = new Point(108, 6);
-        txtVideoProcessingUsers.Name = "txtVideoProcessingUsers";
-        txtVideoProcessingUsers.Size = new Size(1800, 30);
-        txtVideoProcessingUsers.TabIndex = 43;
-        // 
-        // btnCompressVideo
-        // 
-        btnCompressVideo.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnCompressVideo.Location = new Point(228, 42);
-        btnCompressVideo.Name = "btnCompressVideo";
-        btnCompressVideo.Size = new Size(218, 72);
-        btnCompressVideo.TabIndex = 42;
-        btnCompressVideo.Text = "Compress Video";
-        btnCompressVideo.UseVisualStyleBackColor = true;
-        btnCompressVideo.Click += btnCompressVideo_Click;
+        tabPage2.Text = "Video";
         // 
         // tabPage1
         // 
-        tabPage1.Controls.Add(btnReloadExistingUserList);
-        tabPage1.Controls.Add(label6);
-        tabPage1.Controls.Add(dgvUserHistory);
-        tabPage1.Controls.Add(btnCopyToVideoTab);
-        tabPage1.Controls.Add(btnCopyToDownloadTab);
-        tabPage1.Controls.Add(listBoxActionHistory);
-        tabPage1.Controls.Add(label5);
         tabPage1.Location = new Point(4, 33);
         tabPage1.Name = "tabPage1";
         tabPage1.Padding = new Padding(3);
-        tabPage1.Size = new Size(2246, 971);
+        tabPage1.Size = new Size(2246, 941);
         tabPage1.TabIndex = 2;
         tabPage1.Text = "History";
-        tabPage1.UseVisualStyleBackColor = true;
         // 
-        // dgvUserHistory
+        // tabPageViewer
         // 
-        dgvUserHistory.AllowUserToAddRows = false;
-        dgvUserHistory.AllowUserToDeleteRows = false;
-        dgvUserHistory.AllowUserToOrderColumns = true;
-        dgvUserHistory.AllowUserToResizeRows = false;
-        dgvUserHistory.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left;
-        dgvUserHistory.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-        dgvUserHistory.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-        dgvUserHistory.Columns.AddRange(new DataGridViewColumn[] { UserName, FileCount, FolderSize, ParentFolder });
-        dgvUserHistory.Location = new Point(6, 73);
-        dgvUserHistory.Name = "dgvUserHistory";
-        dgvUserHistory.RowHeadersWidth = 42;
-        dgvUserHistory.Size = new Size(1031, 868);
-        dgvUserHistory.TabIndex = 3;
-        // 
-        // UserName
-        // 
-        UserName.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-        UserName.Frozen = true;
-        UserName.HeaderText = "User Name";
-        UserName.MinimumWidth = 8;
-        UserName.Name = "UserName";
-        UserName.ReadOnly = true;
-        UserName.Width = 141;
-        // 
-        // FileCount
-        // 
-        FileCount.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-        FileCount.Frozen = true;
-        FileCount.HeaderText = "File Count";
-        FileCount.MinimumWidth = 8;
-        FileCount.Name = "FileCount";
-        FileCount.ReadOnly = true;
-        FileCount.Width = 133;
-        // 
-        // FolderSize
-        // 
-        FolderSize.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-        FolderSize.Frozen = true;
-        FolderSize.HeaderText = "Folder Size";
-        FolderSize.MinimumWidth = 8;
-        FolderSize.Name = "FolderSize";
-        FolderSize.ReadOnly = true;
-        FolderSize.Width = 140;
-        // 
-        // ParentFolder
-        // 
-        ParentFolder.AutoSizeMode = DataGridViewAutoSizeColumnMode.AllCells;
-        ParentFolder.Frozen = true;
-        ParentFolder.HeaderText = "Parent Folder";
-        ParentFolder.MinimumWidth = 8;
-        ParentFolder.Name = "ParentFolder";
-        ParentFolder.ReadOnly = true;
-        ParentFolder.Width = 162;
-        // 
-        // btnCopyToVideoTab
-        // 
-        btnCopyToVideoTab.Location = new Point(1374, 33);
-        btnCopyToVideoTab.Name = "btnCopyToVideoTab";
-        btnCopyToVideoTab.Size = new Size(325, 34);
-        btnCopyToVideoTab.TabIndex = 2;
-        btnCopyToVideoTab.Text = "Copy to Video Tab";
-        btnCopyToVideoTab.UseVisualStyleBackColor = true;
-        // 
-        // btnCopyToDownloadTab
-        // 
-        btnCopyToDownloadTab.Location = new Point(1043, 33);
-        btnCopyToDownloadTab.Name = "btnCopyToDownloadTab";
-        btnCopyToDownloadTab.Size = new Size(325, 34);
-        btnCopyToDownloadTab.TabIndex = 1;
-        btnCopyToDownloadTab.Text = "Copy to Download Tab";
-        btnCopyToDownloadTab.UseVisualStyleBackColor = true;
-        // 
-        // listBoxActionHistory
-        // 
-        listBoxActionHistory.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-        listBoxActionHistory.Font = new Font("Cascadia Code", 10F);
-        listBoxActionHistory.FormattingEnabled = true;
-        listBoxActionHistory.ItemHeight = 27;
-        listBoxActionHistory.Location = new Point(1043, 73);
-        listBoxActionHistory.Name = "listBoxActionHistory";
-        listBoxActionHistory.Size = new Size(1197, 868);
-        listBoxActionHistory.TabIndex = 4;
-        // 
-        // label5
-        // 
-        label5.AutoSize = true;
-        label5.Location = new Point(1043, 6);
-        label5.Name = "label5";
-        label5.Size = new Size(133, 24);
-        label5.TabIndex = 5;
-        label5.Text = "Action History";
+        tabPageViewer.Location = new Point(4, 33);
+        tabPageViewer.Name = "tabPageViewer";
+        tabPageViewer.Padding = new Padding(3);
+        tabPageViewer.Size = new Size(2246, 941);
+        tabPageViewer.TabIndex = 3;
+        tabPageViewer.Text = "Viewer";
         // 
         // label2
         // 
         label2.Anchor = AnchorStyles.Top | AnchorStyles.Right;
         label2.AutoSize = true;
-        label2.Location = new Point(1570, 9);
+        label2.Location = new Point(1570, 12);
         label2.Name = "label2";
         label2.Size = new Size(198, 24);
         label2.TabIndex = 28;
@@ -615,29 +85,10 @@ partial class MainForm
         // txtTargetFolder
         // 
         txtTargetFolder.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        txtTargetFolder.Location = new Point(1774, 7);
+        txtTargetFolder.Location = new Point(1774, 9);
         txtTargetFolder.Name = "txtTargetFolder";
         txtTargetFolder.Size = new Size(485, 30);
         txtTargetFolder.TabIndex = 27;
-        // 
-        // label6
-        // 
-        label6.AutoSize = true;
-        label6.Location = new Point(6, 6);
-        label6.Name = "label6";
-        label6.Size = new Size(128, 24);
-        label6.TabIndex = 6;
-        label6.Text = "Existing Users";
-        // 
-        // btnReloadExistingUserList
-        // 
-        btnReloadExistingUserList.Location = new Point(6, 33);
-        btnReloadExistingUserList.Name = "btnReloadExistingUserList";
-        btnReloadExistingUserList.Size = new Size(325, 34);
-        btnReloadExistingUserList.TabIndex = 7;
-        btnReloadExistingUserList.Text = "Reload";
-        btnReloadExistingUserList.UseVisualStyleBackColor = true;
-        btnReloadExistingUserList.Click += btnReloadExistingUserList_Click;
         // 
         // MainForm
         // 
@@ -653,67 +104,15 @@ partial class MainForm
         DragDrop += MainForm_DragDrop;
         DragEnter += MainForm_DragEnter;
         mainTabControl.ResumeLayout(false);
-        DownloadPage.ResumeLayout(false);
-        DownloadPage.PerformLayout();
-        tabPage2.ResumeLayout(false);
-        tabPage2.PerformLayout();
-        tabPage1.ResumeLayout(false);
-        tabPage1.PerformLayout();
-        ((System.ComponentModel.ISupportInitialize)dgvUserHistory).EndInit();
         ResumeLayout(false);
         PerformLayout();
     }
 
-    #endregion
-
     private TabControl mainTabControl;
     private TabPage DownloadPage;
-    private Button btnCopyAllSubdirNames;
-    private Label lblDownloadingCounter;
-    private Button btnStop;
-    private Button btnMarkDeletedFilesNoRedownload;
-    private CheckBox chbDownloadImage;
-    private Button btnOpenFirstUserFolder;
-    private Button btnCopyFailedUrls;
-    private Button btnDeleteInfoFiles;
-    private CheckBox chbDownloadVideo;
-    private CheckBox chbChildLevel;
-    private CheckBox chbNormal;
-    private CheckBox chbMature;
-    private CheckBox chbAlwaysDownloadLatest;
-    private CheckBox chbNsfw;
-    private ListBox listBoxMessages;
-    private Button btnDownload;
-    private Label label1;
-    private TextBox txtUsernames;
     private TabPage tabPage2;
-    private Button btnCompressVideo;
-    private Label label4;
-    private TextBox txtVideoProcessingUsers;
-    private Button btnCopyFromDownloadTab;
-    private ListBox listBoxVideoProcessingMessages;
+    private TabPage tabPage1;
+    private TabPage tabPageViewer;
     private Label label2;
     private TextBox txtTargetFolder;
-    private Button btnOpenAllUserFolders;
-    private Label label3;
-    private CheckBox chb6Star;
-    private CheckBox chb5Star;
-    private CheckBox chb4p5Star;
-    private CheckBox chb4Star;
-    private CheckBox chb3Star;
-    private Button btnSetUserNameTextByRating;
-    private Button btnMoveUsersToRating;
-    private Button btnCompressInfo;
-    private TabPage tabPage1;
-    private Button btnCopyToVideoTab;
-    private Button btnCopyToDownloadTab;
-        private DataGridView dgvUserHistory;
-    private ListBox listBoxActionHistory;
-    private Label label5;
-    private DataGridViewTextBoxColumn UserName;
-    private DataGridViewTextBoxColumn FileCount;
-    private DataGridViewTextBoxColumn FolderSize;
-    private DataGridViewTextBoxColumn ParentFolder;
-    private Button btnReloadExistingUserList;
-    private Label label6;
 }

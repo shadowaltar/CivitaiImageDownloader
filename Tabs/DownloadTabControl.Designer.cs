@@ -65,8 +65,7 @@ partial class DownloadTabControl
         // 
         // btnMoveUsersToRating
         // 
-        btnMoveUsersToRating.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        btnMoveUsersToRating.Location = new Point(1637, 42);
+        btnMoveUsersToRating.Location = new Point(1366, 42);
         btnMoveUsersToRating.Name = "btnMoveUsersToRating";
         btnMoveUsersToRating.Size = new Size(160, 98);
         btnMoveUsersToRating.TabIndex = 2;
@@ -76,7 +75,7 @@ partial class DownloadTabControl
         // chb6Star
         // 
         chb6Star.Appearance = Appearance.Button;
-        chb6Star.Location = new Point(1417, 96);
+        chb6Star.Location = new Point(1146, 96);
         chb6Star.Name = "chb6Star";
         chb6Star.Size = new Size(104, 47);
         chb6Star.TabIndex = 3;
@@ -85,7 +84,7 @@ partial class DownloadTabControl
         // chb5Star
         // 
         chb5Star.Appearance = Appearance.Button;
-        chb5Star.Location = new Point(1307, 96);
+        chb5Star.Location = new Point(1036, 96);
         chb5Star.Name = "chb5Star";
         chb5Star.Size = new Size(104, 48);
         chb5Star.TabIndex = 4;
@@ -94,7 +93,7 @@ partial class DownloadTabControl
         // chb4p5Star
         // 
         chb4p5Star.Appearance = Appearance.Button;
-        chb4p5Star.Location = new Point(1527, 42);
+        chb4p5Star.Location = new Point(1256, 42);
         chb4p5Star.Name = "chb4p5Star";
         chb4p5Star.Size = new Size(104, 48);
         chb4p5Star.TabIndex = 5;
@@ -103,7 +102,7 @@ partial class DownloadTabControl
         // chb4Star
         // 
         chb4Star.Appearance = Appearance.Button;
-        chb4Star.Location = new Point(1417, 42);
+        chb4Star.Location = new Point(1146, 42);
         chb4Star.Name = "chb4Star";
         chb4Star.Size = new Size(104, 48);
         chb4Star.TabIndex = 6;
@@ -112,7 +111,7 @@ partial class DownloadTabControl
         // chb3Star
         // 
         chb3Star.Appearance = Appearance.Button;
-        chb3Star.Location = new Point(1307, 42);
+        chb3Star.Location = new Point(1036, 42);
         chb3Star.Name = "chb3Star";
         chb3Star.Size = new Size(104, 48);
         chb3Star.TabIndex = 7;
@@ -121,7 +120,7 @@ partial class DownloadTabControl
         // label3
         // 
         label3.AutoSize = true;
-        label3.Location = new Point(1222, 54);
+        label3.Location = new Point(951, 54);
         label3.Name = "label3";
         label3.Size = new Size(79, 24);
         label3.TabIndex = 8;

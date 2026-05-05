@@ -8,6 +8,7 @@ public class AppMediator
     public string TargetFolder { get; set; } = @"D:\AI\CivitAI\";
 
     public string DownloadUsernames { get; set; } = "";
+    public string VideoUsernames { get; set; } = "";
 
     public List<DownloadResult> DownloadResults { get; } = [];
 

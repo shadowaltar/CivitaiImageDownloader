@@ -13,7 +13,12 @@ public partial class VideoTabControl : UserControl
     {
         _mediator = mediator;
         InitializeComponent();
-        _mediator.UsernamesCopiedToVideo += usernames => txtVideoProcessingUsers.Text = usernames;
+        _mediator.UsernamesCopiedToVideo += usernames =>
+        {
+            txtVideoProcessingUsers.Text = usernames;
+            _mediator.VideoUsernames = usernames;
+        };
+        txtVideoProcessingUsers.TextChanged += (s, e) => _mediator.VideoUsernames = txtVideoProcessingUsers.Text;
         _mediator.Stopping = false;
     }
 

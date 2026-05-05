@@ -67,7 +67,7 @@ public partial class MainForm : Form
 
     private void MainForm_DragEnter(object sender, DragEventArgs e)
     {
-        if (e.Data.GetDataPresent(DataFormats.FileDrop))
+        if (e.Data.GetDataPresent(DataFormats.FileDrop) || e.Data.GetDataPresent(DataFormats.Text) || e.Data.GetDataPresent(DataFormats.UnicodeText))
             e.Effect = DragDropEffects.Copy;
         else
             e.Effect = DragDropEffects.None;
@@ -75,6 +75,44 @@ public partial class MainForm : Form
 
     private void MainForm_DragDrop(object sender, DragEventArgs e)
     {
+        // handle text URL drops (civitai user URLs)
+        var dropText = e.Data.GetData(DataFormats.Text)?.ToString()
+                    ?? e.Data.GetData(DataFormats.UnicodeText)?.ToString()
+                    ?? "";
+        if (!string.IsNullOrEmpty(dropText))
+        {
+            var urls = dropText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var extractedUsers = new List<string>();
+            foreach (var url in urls)
+            {
+                var trimmed = url.Trim();
+                var match = System.Text.RegularExpressions.Regex.Match(trimmed, @"/user/([^/?]+)");
+                if (match.Success && !string.IsNullOrEmpty(match.Groups[1].Value))
+                    extractedUsers.Add(match.Groups[1].Value);
+            }
+            if (extractedUsers.Count > 0)
+            {
+                var append = string.Join(",", extractedUsers);
+                if (mainTabControl.SelectedTab == tabPage2)
+                {
+                    var current = _mediator.VideoUsernames ?? "";
+                    var newText = string.IsNullOrEmpty(current) ? append : current + "," + append;
+                    _mediator.CopyUsernamesToVideo(newText);
+                }
+                else
+                {
+                    var current = _mediator.DownloadUsernames ?? "";
+                    var newText = string.IsNullOrEmpty(current) ? append : current + "," + append;
+                    _mediator.CopyUsernamesToDownload(newText);
+                }
+                return;
+            }
+        }
+
+        // handle file/folder drops
+        if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+            return;
+
         string[] paths = (string[])e.Data.GetData(DataFormats.FileDrop);
         List<string> userNames = new();
         List<string> fileNames = new();
@@ -88,12 +126,12 @@ public partial class MainForm : Form
         if (mainTabControl.SelectedTab == tabPage2)
         {
             var text = userNames.Count > 0 ? string.Join(",", userNames) : string.Join(",", fileNames);
-            _videoTab?.Invoke(() => _mediator.CopyUsernamesToVideo(text));
+            _mediator.CopyUsernamesToVideo(text);
         }
         else
         {
             var text = string.Join(",", userNames);
-            _downloadTab?.Invoke(() => _mediator.CopyUsernamesToDownload(text));
+            _mediator.CopyUsernamesToDownload(text);
         }
     }
 }

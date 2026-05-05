@@ -14,7 +14,7 @@ partial class ViewerTabControl
     private void InitializeComponent()
     {
         splitContainerViewer = new SplitContainer();
-        listBoxViewerUsers = new ListBox();
+        treeViewNavigator = new TreeView();
         flowLayoutPanelViewer = new FlowLayoutPanel();
         progressBarViewer = new ProgressBar();
         ((System.ComponentModel.ISupportInitialize)splitContainerViewer).BeginInit();
@@ -31,14 +31,13 @@ partial class ViewerTabControl
         splitContainerViewer.SplitterWidth = 4;
         splitContainerViewer.TabIndex = 0;
 
-        listBoxViewerUsers.Dock = DockStyle.Fill;
-        listBoxViewerUsers.Font = new Font("Cascadia Code", 10F);
-        listBoxViewerUsers.IntegralHeight = false;
-        listBoxViewerUsers.ItemHeight = 27;
-        listBoxViewerUsers.Location = new Point(0, 0);
-        listBoxViewerUsers.Name = "listBoxViewerUsers";
-        listBoxViewerUsers.Size = new Size(346, 748);
-        listBoxViewerUsers.TabIndex = 0;
+        treeViewNavigator.Dock = DockStyle.Fill;
+        treeViewNavigator.Font = new Font("Cascadia Code", 10F);
+        treeViewNavigator.HideSelection = false;
+        treeViewNavigator.Location = new Point(0, 0);
+        treeViewNavigator.Name = "treeViewNavigator";
+        treeViewNavigator.Size = new Size(346, 748);
+        treeViewNavigator.TabIndex = 0;
 
         flowLayoutPanelViewer.AutoScroll = true;
         flowLayoutPanelViewer.BackColor = SystemColors.ControlDark;
@@ -58,7 +57,7 @@ partial class ViewerTabControl
         progressBarViewer.TabIndex = 1;
         progressBarViewer.Visible = false;
 
-        splitContainerViewer.Panel1.Controls.Add(listBoxViewerUsers);
+        splitContainerViewer.Panel1.Controls.Add(treeViewNavigator);
         splitContainerViewer.Panel2.Controls.Add(flowLayoutPanelViewer);
         splitContainerViewer.Panel2.Controls.Add(progressBarViewer);
 
@@ -73,7 +72,7 @@ partial class ViewerTabControl
     }
 
     private SplitContainer splitContainerViewer;
-    private ListBox listBoxViewerUsers;
+    private TreeView treeViewNavigator;
     private FlowLayoutPanel flowLayoutPanelViewer;
     private ProgressBar progressBarViewer;
 }

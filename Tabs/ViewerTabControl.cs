@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using CivitaiImageDownloader.Util;
+using LibVLCSharp.Shared;
+using LibVLCSharp.WinForms;
 using NReco.VideoConverter;
 
 namespace CivitaiImageDownloader.Tabs;
@@ -10,19 +12,25 @@ public partial class ViewerTabControl : UserControl
     private Panel? _selectedViewerTile;
     private CancellationTokenSource? _loadCts;
     private float _zoomFactor = 1.0f;
+    private DateTime _lastZoomTime = DateTime.MinValue;
+    private int _pendingZoomDelta;
+    private System.Windows.Forms.Timer? _zoomTimer;
+    private LibVLC? _libVLC;
 
     public ViewerTabControl(AppMediator mediator)
     {
         _mediator = mediator;
+        Core.Initialize();
+        _libVLC = new LibVLC();
         InitializeComponent();
-        listBoxViewerUsers.SelectedIndexChanged += listBoxViewerUsers_SelectedIndexChanged;
-        listBoxViewerUsers.MouseDown += (s, e) =>
+        treeViewNavigator.AfterSelect += treeViewNavigator_AfterSelect;
+        treeViewNavigator.MouseDown += (s, e) =>
         {
             if (e.Button == MouseButtons.Right)
             {
-                var index = listBoxViewerUsers.IndexFromPoint(e.Location);
-                if (index != ListBox.NoMatches)
-                    listBoxViewerUsers.SelectedIndex = index;
+                var node = treeViewNavigator.GetNodeAt(e.Location);
+                if (node != null)
+                    treeViewNavigator.SelectedNode = node;
             }
         };
 
@@ -30,13 +38,15 @@ public partial class ViewerTabControl : UserControl
         var itemDownload = new ToolStripMenuItem("Show in Download Tab");
         itemDownload.Click += (s, e) =>
         {
-            if (listBoxViewerUsers.SelectedItem is string user)
+            var user = treeViewNavigator.SelectedNode?.Text;
+            if (!string.IsNullOrEmpty(user) && treeViewNavigator.SelectedNode?.Parent != null)
                 _mediator.CopyUsernamesToDownload(user);
         };
         var itemVideo = new ToolStripMenuItem("Show in Video Tab");
         itemVideo.Click += (s, e) =>
         {
-            if (listBoxViewerUsers.SelectedItem is string user)
+            var user = treeViewNavigator.SelectedNode?.Text;
+            if (!string.IsNullOrEmpty(user) && treeViewNavigator.SelectedNode?.Parent != null)
             {
                 _mediator.CopyUsernamesToVideo(user);
                 _mediator.RequestSwitchToVideoTab();
@@ -44,16 +54,35 @@ public partial class ViewerTabControl : UserControl
         };
         ctxMenu.Items.Add(itemDownload);
         ctxMenu.Items.Add(itemVideo);
-        listBoxViewerUsers.ContextMenuStrip = ctxMenu;
+        treeViewNavigator.ContextMenuStrip = ctxMenu;
 
         flowLayoutPanelViewer.MouseWheel += (s, e) =>
         {
-            if (ModifierKeys.HasFlag(Keys.Control))
+            if (!ModifierKeys.HasFlag(Keys.Control)) return;
+            _pendingZoomDelta += e.Delta > 0 ? 1 : -1;
+            var now = DateTime.UtcNow;
+            if ((now - _lastZoomTime).TotalMilliseconds >= 250)
             {
-                _zoomFactor = Math.Clamp(_zoomFactor + (e.Delta > 0 ? 0.1f : -0.1f), 0.3f, 3.0f);
-                ApplyZoomToTiles();
+                ApplyPendingZoom();
+            }
+            else
+            {
+                _zoomTimer?.Stop();
+                _zoomTimer = new System.Windows.Forms.Timer { Interval = 250 };
+                _zoomTimer.Tick += (_, _) => { _zoomTimer.Stop(); ApplyPendingZoom(); };
+                _zoomTimer.Start();
             }
         };
+    }
+
+    private void ApplyPendingZoom()
+    {
+        if (_pendingZoomDelta == 0) return;
+        var steps = Math.Sign(_pendingZoomDelta);
+        _lastZoomTime = DateTime.UtcNow;
+        _pendingZoomDelta = 0;
+        _zoomFactor = Math.Clamp(_zoomFactor + steps * 3.0f, 0.3f, 3.0f);
+        ApplyZoomToTiles();
     }
 
     public async Task PopulateViewerUserList()
@@ -62,56 +91,68 @@ public partial class ViewerTabControl : UserControl
         if (!Directory.Exists(targetFolder))
             return;
 
-        var users = await Task.Run(() =>
+        var rootNodes = await Task.Run(() =>
         {
-            var metaRoots = new List<string> { targetFolder };
+            var metaRoots = new List<(string path, string name)> { (targetFolder, Path.GetFileName(targetFolder)) };
             void CollectMetaRoots(string folder)
             {
                 foreach (var dir in Directory.GetDirectories(folder))
                 {
                     if (Path.GetFileName(dir).StartsWith("!"))
                     {
-                        metaRoots.Add(dir);
+                        metaRoots.Add((dir, Path.GetFileName(dir)));
                         CollectMetaRoots(dir);
                     }
                 }
             }
             CollectMetaRoots(targetFolder);
 
-            var userList = new List<string>();
-            foreach (var root in metaRoots)
+            var result = new List<(string metaName, string[] users)>();
+            foreach (var (root, metaName) in metaRoots)
             {
+                var users = new List<string>();
                 foreach (var dir in Directory.GetDirectories(root))
                 {
                     var dirName = Path.GetFileName(dir);
                     if (dirName.StartsWith("!"))
                         continue;
-                    userList.Add(dirName);
+                    users.Add(dirName);
                 }
+                users.Sort();
+                if (users.Count > 0)
+                    result.Add((metaName, users.ToArray()));
             }
-            userList.Sort();
-            return userList;
+            return result;
         });
 
-        if (InvokeRequired)
-            Invoke(() =>
-            {
-                listBoxViewerUsers.Items.Clear();
-                foreach (var u in users)
-                    listBoxViewerUsers.Items.Add(u);
-            });
-        else
+        void UpdateTree()
         {
-            listBoxViewerUsers.Items.Clear();
-            foreach (var u in users)
-                listBoxViewerUsers.Items.Add(u);
+            treeViewNavigator.BeginUpdate();
+            treeViewNavigator.Nodes.Clear();
+            foreach (var (metaName, users) in rootNodes)
+            {
+                var parentNode = new TreeNode(metaName);
+                foreach (var user in users)
+                    parentNode.Nodes.Add(new TreeNode(user));
+                treeViewNavigator.Nodes.Add(parentNode);
+            }
+            treeViewNavigator.EndUpdate();
         }
+
+        if (InvokeRequired)
+            Invoke(UpdateTree);
+        else
+            UpdateTree();
     }
 
-    private async void listBoxViewerUsers_SelectedIndexChanged(object? sender, EventArgs e)
+    private async void treeViewNavigator_AfterSelect(object? sender, TreeViewEventArgs e)
     {
-        if (listBoxViewerUsers.SelectedItem is not string userName)
+        var node = e.Node;
+        // only handle leaf nodes (username folders)
+        if (node.Parent == null)
             return;
+
+        var userName = node.Text;
 
         // cancel any previous load
         _loadCts?.Cancel();
@@ -223,15 +264,12 @@ public partial class ViewerTabControl : UserControl
         {
             var z = _zoomFactor;
             tile.Size = new Size((int)(180 * z), (int)(240 * z));
-            if (tile.Controls.Count >= 2)
+            foreach (Control c in tile.Controls)
             {
-                var pb = tile.Controls[0];
-                pb.Size = new Size((int)(132 * z), (int)(176 * z));
-                pb.Location = new Point((int)(21 * z), (int)(2 * z));
-                var lbl = tile.Controls[1];
-                lbl.Size = new Size((int)(174 * z), (int)(53 * z));
-                lbl.Location = new Point(0, (int)(181 * z));
-                lbl.Font = new Font("Segoe UI", Math.Max(6, 8 * z));
+                if (c is Label lbl)
+                    lbl.Height = (int)(53 * z);
+                else if (c.Tag is string tag && tag == "vlc")
+                    c.Bounds = tile.DisplayRectangle with { Height = tile.DisplayRectangle.Height - (int)(53 * z) };
             }
         }
         flowLayoutPanelViewer.ResumeLayout();
@@ -240,32 +278,48 @@ public partial class ViewerTabControl : UserControl
     private Panel CreateThumbnailTile(string filePath, bool isVideo, Image? thumbnail)
     {
         var z = _zoomFactor;
-        // tile: 180x240 * z, image: 132x176 * z (w:h = 3:4), 3px border via padding
         var panel = new Panel { Size = new Size((int)(180 * z), (int)(240 * z)), Margin = new Padding(4), BackColor = Color.White, Tag = filePath, Padding = new Padding(3) };
-        var pictureBox = new PictureBox { Size = new Size((int)(132 * z), (int)(176 * z)), Location = new Point((int)(21 * z), (int)(2 * z)), SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
+        var pictureBox = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
 
         if (thumbnail != null)
             pictureBox.Image = thumbnail;
         else
             pictureBox.BackColor = Color.Gray;
 
-        var label = new Label { Text = Path.GetFileName(filePath), Size = new Size((int)(174 * z), (int)(53 * z)), Location = new Point(0, (int)(181 * z)), TextAlign = ContentAlignment.TopCenter, AutoEllipsis = true, Font = new Font("Segoe UI", Math.Max(6, 8 * z)) };
+        var label = new Label { Text = Path.GetFileName(filePath), Dock = DockStyle.Bottom, Height = (int)(53 * z), AutoSize = false, TextAlign = ContentAlignment.TopCenter, AutoEllipsis = true, Font = new Font("Segoe UI", 8F) };
 
         panel.Controls.Add(pictureBox);
         panel.Controls.Add(label);
 
         EventHandler selectTile = (s, e) =>
         {
-            if (_selectedViewerTile != null && _selectedViewerTile != panel)
+            if (_selectedViewerTile == panel) return;
+            // deselect previous
+            if (_selectedViewerTile != null)
+            {
                 _selectedViewerTile.BackColor = Color.White;
+                StopVideo(_selectedViewerTile);
+                var prevPb = _selectedViewerTile.Controls.OfType<PictureBox>().FirstOrDefault();
+                if (prevPb != null) prevPb.Visible = true;
+            }
             _selectedViewerTile = panel;
             panel.BackColor = Color.Orange;
+            if (isVideo)
+            {
+                pictureBox.Visible = false;
+                StartVideo(panel, filePath, pictureBox);
+            }
         };
         panel.Click += selectTile;
         pictureBox.Click += selectTile;
         label.Click += selectTile;
 
         pictureBox.DoubleClick += (s, e) =>
+        {
+            try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); }
+            catch { }
+        };
+        label.DoubleClick += (s, e) =>
         {
             try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); }
             catch { }
@@ -295,5 +349,61 @@ public partial class ViewerTabControl : UserControl
         }
         catch { }
         return null;
+    }
+
+    private async void StartVideo(Panel panel, string filePath, PictureBox pictureBox)
+    {
+        StopVideo(panel);
+        try
+        {
+            var pb = pictureBox; // closure-captured PictureBox
+            var videoView = new VideoView
+            {
+                Bounds = pb.Bounds,
+                Anchor = AnchorStyles.None,
+                Tag = "vlc"
+            };
+            panel.Controls.Add(videoView);
+            videoView.BringToFront();
+
+            var media = new Media(_libVLC, new Uri(filePath), ":input-repeat=65535");
+            var player = new MediaPlayer(media);
+            player.EnableHardwareDecoding = true;
+            videoView.MediaPlayer = player;
+            videoView.DoubleClick += (s, e) =>
+            {
+                try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); }
+                catch { }
+            };
+
+            await Task.Run(() =>
+            {
+                media.Parse(MediaParseOptions.ParseNetwork);
+            });
+
+            player.EndReached += (s, e) => Task.Run(() => player.Play());
+            player.Play();
+        }
+        catch
+        {
+            try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); } catch { }
+        }
+    }
+
+    private void StopVideo(Panel exceptPanel)
+    {
+        foreach (Panel tile in flowLayoutPanelViewer.Controls.OfType<Panel>())
+        {
+            if (tile == exceptPanel) continue;
+            foreach (Control c in tile.Controls.OfType<Control>())
+            {
+                if (c.Tag is string tag && tag == "vlc" && c is VideoView vv)
+                {
+                    vv.MediaPlayer?.Stop();
+                    vv.MediaPlayer?.Dispose();
+                    try { tile.Controls.Remove(vv); vv.Dispose(); } catch { }
+                }
+            }
+        }
     }
 }

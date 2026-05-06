@@ -18,6 +18,7 @@ partial class VideoTabControl
         label4 = new Label();
         txtVideoProcessingUsers = new TextBox();
         btnCompressVideo = new Button();
+        btnEnhanceFrameRate = new Button();
         SuspendLayout();
         // 
         // listBoxVideoProcessingMessages
@@ -69,8 +70,19 @@ partial class VideoTabControl
         btnCompressVideo.UseVisualStyleBackColor = true;
         btnCompressVideo.Click += btnCompressVideo_Click;
         // 
+        // btnEnhanceFrameRate
+        // 
+        btnEnhanceFrameRate.Location = new Point(284, 80);
+        btnEnhanceFrameRate.Name = "btnEnhanceFrameRate";
+        btnEnhanceFrameRate.Size = new Size(240, 34);
+        btnEnhanceFrameRate.TabIndex = 5;
+        btnEnhanceFrameRate.Text = "Enhance Frame Rate";
+        btnEnhanceFrameRate.UseVisualStyleBackColor = true;
+        btnEnhanceFrameRate.Click += btnEnhanceFrameRate_Click;
+        // 
         // VideoTabControl
         // 
+        Controls.Add(btnEnhanceFrameRate);
         Controls.Add(btnCompressVideo);
         Controls.Add(txtVideoProcessingUsers);
         Controls.Add(label4);
@@ -87,4 +99,5 @@ partial class VideoTabControl
     private Label label4;
     private TextBox txtVideoProcessingUsers;
     private Button btnCopyFromDownloadTab;
+    private Button btnEnhanceFrameRate;
 }

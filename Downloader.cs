@@ -136,7 +136,7 @@ public class Downloader : IDisposable
     private async Task GetAllMetaInfos(List<MediaMeta> allMetas, string folder)
     {
         var existingInfoFiles = Utils.GetInfoFiles(folder);
-        var existingIds = new HashSet<int>();
+        var existingKeys = new HashSet<string>();
 
         if (existingInfoFiles.Count != 0)
         {
@@ -144,7 +144,7 @@ public class Downloader : IDisposable
             await GetLocalMetaInfo(existingMetas, existingInfoFiles);
             allMetas.AddRange(existingMetas);
             foreach (var m in existingMetas)
-                existingIds.Add(m.Id);
+                existingKeys.Add($"{m.Id}|{m.Url}|{m.PostId}");
         }
 
         if (_skipLatestIndexFetch)
@@ -191,19 +191,22 @@ public class Downloader : IDisposable
                         continue;
 
                     var id = item.GetInt("id");
-                    if (id > 0 && !existingIds.Contains(id))
+                    var url = item.GetStr("url");
+                    var postId = item.GetInt("postId");
+                    var key = $"{id}|{url}|{postId}";
+                    if (!string.IsNullOrEmpty(url) && !existingKeys.Contains(key))
                     {
                         var cloned = item.DeepClone();
                         Utils.StripUnwantedFields(cloned);
                         allNewItemsJson.Add(cloned);
-                        existingIds.Add(id);
+                        existingKeys.Add(key);
                         newInPage++;
 
                         var meta = TryParseItemToMeta(item);
                         if (meta != null)
                             allMetas.Add(meta);
                     }
-                    else
+                    else if (!string.IsNullOrEmpty(url))
                     {
                         skippedInPage++;
                     }
@@ -384,6 +387,19 @@ public class Downloader : IDisposable
                         // save as jpg
                         await CompressJpeg(jpegPath, url);
                     }
+
+                    // detect fake MP4 (actually JPEG) and redownload with optimized URL
+                    var isFakeMp4 = await TryDetectFakeMp4(jpegPath);
+                    if (isFakeMp4 && meta.IsVideo)
+                    {
+                        var optimizedUrl = url.Replace("original=true", "transcode=false,original=false,optimized=true");
+                        if (optimizedUrl != url)
+                        {
+                            File.Delete(jpegPath);
+                            RaiseMessage?.Invoke($"[{i}/{totalCount}] Fake MP4 detected, redownloading optimized: {url}");
+                            shallRetry = !await SaveToFile(optimizedUrl, jpegPath, i, totalCount);
+                        }
+                    }
                 }
                 catch (Exception e1)
                 {
@@ -430,6 +446,23 @@ public class Downloader : IDisposable
         File.Move(compressedFile, filePath);
     }
 
+    private async Task<bool> TryDetectFakeMp4(string filePath)
+    {
+        try
+        {
+            var info = await Task.Run(() => _ffProbe.GetMediaInfo(filePath));
+            var stream = info.Streams.FirstOrDefault(s => s.CodecType?.ToLower() == "video");
+            if (stream == null) return false;
+            if (stream.CodecName?.ToLower() != "mjpeg") return false;
+            if (info.FormatName?.Contains("jpeg") != true) return false;
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private async Task<bool> SaveToFile(string url, string path, int i, int totalCount)
     {
         var startTime = DateTime.Now;
@@ -444,12 +477,12 @@ public class Downloader : IDisposable
         var elapsed = (endTime - startTime).TotalSeconds;
         if (length == 0)
         {
-            RaiseMessage?.Invoke($"[{elapsed:F4}] [{i}/{totalCount}] [{length}b] [FAILED] Download: {url} to {path}");
+            RaiseMessage?.Invoke($"[{elapsed:F4}] [{i}/{totalCount}] [{length / 1048576.0:F2} MB] [FAILED] Download to {path}");
             return false;
         }
         else
         {
-            RaiseMessage?.Invoke($"[{elapsed:F4}] [{i}/{totalCount}] [{length}b] Downloaded: {url} to {path}");
+            RaiseMessage?.Invoke($"[{elapsed:F4}] [{i}/{totalCount}] [{length / 1048576.0:F2} MB] Downloaded to {path}");
             return true;
         }
     }

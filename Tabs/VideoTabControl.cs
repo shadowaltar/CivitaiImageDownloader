@@ -1,5 +1,7 @@
 using CivitaiImageDownloader.Models;
 using CivitaiImageDownloader.Util;
+using NReco.VideoConverter;
+using NReco.VideoInfo;
 using System.Diagnostics;
 
 namespace CivitaiImageDownloader.Tabs;
@@ -115,5 +117,80 @@ public partial class VideoTabControl : UserControl
             }
             catch { }
         });
+    }
+
+    private async void btnEnhanceFrameRate_Click(object sender, EventArgs e)
+    {
+        List<string> names = txtVideoProcessingUsers.ParseUserNames();
+        if (names.Count == 0) return;
+
+        btnEnhanceFrameRate.Enabled = false;
+        try
+        {
+            await Task.Run(async () =>
+            {
+                foreach (var name in names)
+                {
+                    var folder = FolderHelper.GetFolder(_mediator.TargetFolder, name);
+                    if (string.IsNullOrEmpty(folder))
+                    {
+                        Invoke(() => AddVideoProcessingMessage($"Skipping {name}: folder not found"));
+                        continue;
+                    }
+
+                    var videoFiles = Directory.GetFiles(folder, "*", SearchOption.AllDirectories)
+                        .Where(f => Path.GetExtension(f).ToLower() is ".mp4" or ".webm" or ".mov" or ".avi")
+                        .ToArray();
+
+                    Invoke(() => AddVideoProcessingMessage($"Found {videoFiles.Length} videos for {name}"));
+
+                    foreach (var file in videoFiles)
+                    {
+                        var fileName = Path.GetFileName(file);
+                        var tmpFile = file + ".enhanced.mp4";
+                        try
+                        {
+                            var probe = new FFProbe();
+                            var info = probe.GetMediaInfo(file);
+                            var stream = info.Streams.FirstOrDefault(s => s.CodecType?.ToLower() == "video");
+                            if (stream == null) continue;
+
+                            var fps = stream.FrameRate;
+                            if (fps > 24)
+                            {
+                                Invoke(() => AddVideoProcessingMessage($"  Skip {fileName}: {fps:F1}fps (already smooth)"));
+                                continue;
+                            }
+
+                            Invoke(() => AddVideoProcessingMessage($"  Enhancing {fileName}: {fps:F1}fps → 30fps..."));
+                            var ffmpeg = new FFMpegConverter();
+                            ffmpeg.ConvertMedia(file, null, tmpFile, null,
+                                new ConvertSettings
+                                {
+                                    VideoCodec = "libx264",
+                                    CustomOutputArgs = $"-preset fast -crf 23 -vf minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
+                                });
+
+                            File.Delete(file);
+                            File.Move(tmpFile, file);
+                            Invoke(() => AddVideoProcessingMessage($"  Done {fileName}"));
+                        }
+                        catch (Exception ex)
+                        {
+                            try { File.Delete(tmpFile); } catch { }
+                            Invoke(() => AddVideoProcessingMessage($"  Failed {fileName}: {ex.Message}"));
+                        }
+                    }
+                }
+            });
+        }
+        finally
+        {
+            Invoke(() =>
+            {
+                AddVideoProcessingMessage("Enhance Frame Rate complete.");
+                btnEnhanceFrameRate.Enabled = true;
+            });
+        }
     }
 }

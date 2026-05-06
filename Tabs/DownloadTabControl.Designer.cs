@@ -41,6 +41,7 @@ partial class DownloadTabControl
         btnDownload = new Button();
         label1 = new Label();
         txtUsernames = new TextBox();
+        btnShowFirstUserInViewer = new Button();
         SuspendLayout();
         // 
         // btnCompressInfo
@@ -65,7 +66,7 @@ partial class DownloadTabControl
         // 
         // btnMoveUsersToRating
         // 
-        btnMoveUsersToRating.Location = new Point(1366, 42);
+        btnMoveUsersToRating.Location = new Point(1544, 42);
         btnMoveUsersToRating.Name = "btnMoveUsersToRating";
         btnMoveUsersToRating.Size = new Size(160, 98);
         btnMoveUsersToRating.TabIndex = 2;
@@ -75,7 +76,7 @@ partial class DownloadTabControl
         // chb6Star
         // 
         chb6Star.Appearance = Appearance.Button;
-        chb6Star.Location = new Point(1146, 96);
+        chb6Star.Location = new Point(1324, 96);
         chb6Star.Name = "chb6Star";
         chb6Star.Size = new Size(104, 47);
         chb6Star.TabIndex = 3;
@@ -84,7 +85,7 @@ partial class DownloadTabControl
         // chb5Star
         // 
         chb5Star.Appearance = Appearance.Button;
-        chb5Star.Location = new Point(1036, 96);
+        chb5Star.Location = new Point(1214, 96);
         chb5Star.Name = "chb5Star";
         chb5Star.Size = new Size(104, 48);
         chb5Star.TabIndex = 4;
@@ -93,7 +94,7 @@ partial class DownloadTabControl
         // chb4p5Star
         // 
         chb4p5Star.Appearance = Appearance.Button;
-        chb4p5Star.Location = new Point(1256, 42);
+        chb4p5Star.Location = new Point(1434, 42);
         chb4p5Star.Name = "chb4p5Star";
         chb4p5Star.Size = new Size(104, 48);
         chb4p5Star.TabIndex = 5;
@@ -102,7 +103,7 @@ partial class DownloadTabControl
         // chb4Star
         // 
         chb4Star.Appearance = Appearance.Button;
-        chb4Star.Location = new Point(1146, 42);
+        chb4Star.Location = new Point(1324, 42);
         chb4Star.Name = "chb4Star";
         chb4Star.Size = new Size(104, 48);
         chb4Star.TabIndex = 6;
@@ -111,7 +112,7 @@ partial class DownloadTabControl
         // chb3Star
         // 
         chb3Star.Appearance = Appearance.Button;
-        chb3Star.Location = new Point(1036, 42);
+        chb3Star.Location = new Point(1214, 42);
         chb3Star.Name = "chb3Star";
         chb3Star.Size = new Size(104, 48);
         chb3Star.TabIndex = 7;
@@ -120,7 +121,7 @@ partial class DownloadTabControl
         // label3
         // 
         label3.AutoSize = true;
-        label3.Location = new Point(951, 54);
+        label3.Location = new Point(1129, 54);
         label3.Name = "label3";
         label3.Size = new Size(79, 24);
         label3.TabIndex = 8;
@@ -130,7 +131,7 @@ partial class DownloadTabControl
         // 
         btnOpenAllUserFolders.Location = new Point(666, 112);
         btnOpenAllUserFolders.Name = "btnOpenAllUserFolders";
-        btnOpenAllUserFolders.Size = new Size(272, 64);
+        btnOpenAllUserFolders.Size = new Size(195, 64);
         btnOpenAllUserFolders.TabIndex = 9;
         btnOpenAllUserFolders.Text = "Open all users' folders";
         btnOpenAllUserFolders.Click += btnOpenAllUserFolders_Click;
@@ -187,7 +188,7 @@ partial class DownloadTabControl
         // 
         btnOpenFirstUserFolder.Location = new Point(666, 42);
         btnOpenFirstUserFolder.Name = "btnOpenFirstUserFolder";
-        btnOpenFirstUserFolder.Size = new Size(272, 64);
+        btnOpenFirstUserFolder.Size = new Size(195, 64);
         btnOpenFirstUserFolder.TabIndex = 15;
         btnOpenFirstUserFolder.Text = "Open first user folder";
         btnOpenFirstUserFolder.Click += btnOpenFirstUserFolder_Click;
@@ -315,8 +316,17 @@ partial class DownloadTabControl
         txtUsernames.Size = new Size(2495, 30);
         txtUsernames.TabIndex = 27;
         // 
+        // btnShowFirstUserInViewer
+        // 
+        btnShowFirstUserInViewer.Location = new Point(867, 42);
+        btnShowFirstUserInViewer.Name = "btnShowFirstUserInViewer";
+        btnShowFirstUserInViewer.Size = new Size(195, 64);
+        btnShowFirstUserInViewer.TabIndex = 28;
+        btnShowFirstUserInViewer.Text = "Show first user in Viewer";
+        // 
         // DownloadTabControl
         // 
+        Controls.Add(btnShowFirstUserInViewer);
         Controls.Add(btnCompressInfo);
         Controls.Add(btnSetUserNameTextByRating);
         Controls.Add(btnMoveUsersToRating);
@@ -379,4 +389,5 @@ partial class DownloadTabControl
     private Button btnDownload;
     private Label label1;
     internal TextBox txtUsernames;
+    private Button btnShowFirstUserInViewer;
 }

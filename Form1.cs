@@ -34,6 +34,11 @@ public partial class MainForm : Form
             mainTabControl.SelectedTab = tabPage2;
             _videoTab?.Invoke(() => { });
         };
+        _mediator.TabSwitchToViewerRequested += () =>
+        {
+            mainTabControl.SelectedTab = tabPageViewer;
+            _viewerTab?.SelectFirstUser();
+        };
 
         // create tab controls
         _downloadTab = new DownloadTabControl(_mediator) { Dock = DockStyle.Fill };
@@ -81,32 +86,31 @@ public partial class MainForm : Form
                     ?? "";
         if (!string.IsNullOrEmpty(dropText))
         {
-            var urls = dropText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var lines = dropText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                                .Select(l => l.Trim()).Where(l => l.Length > 0).ToArray();
             var extractedUsers = new List<string>();
-            foreach (var url in urls)
+            foreach (var line in lines)
             {
-                var trimmed = url.Trim();
-                var match = System.Text.RegularExpressions.Regex.Match(trimmed, @"/user/([^/?]+)");
+                var match = System.Text.RegularExpressions.Regex.Match(line, @"/user/([^/?]+)");
                 if (match.Success && !string.IsNullOrEmpty(match.Groups[1].Value))
                     extractedUsers.Add(match.Groups[1].Value);
-            }
-            if (extractedUsers.Count > 0)
-            {
-                var append = string.Join(",", extractedUsers);
-                if (mainTabControl.SelectedTab == tabPage2)
-                {
-                    var current = _mediator.VideoUsernames ?? "";
-                    var newText = string.IsNullOrEmpty(current) ? append : current + "," + append;
-                    _mediator.CopyUsernamesToVideo(newText);
-                }
                 else
-                {
-                    var current = _mediator.DownloadUsernames ?? "";
-                    var newText = string.IsNullOrEmpty(current) ? append : current + "," + append;
-                    _mediator.CopyUsernamesToDownload(newText);
-                }
-                return;
+                    extractedUsers.Add(line);
             }
+            var append = string.Join(",", extractedUsers);
+            if (mainTabControl.SelectedTab == tabPage2)
+            {
+                var current = _mediator.VideoUsernames ?? "";
+                var newText = string.IsNullOrEmpty(current) ? append : current + "," + append;
+                _mediator.CopyUsernamesToVideo(newText);
+            }
+            else
+            {
+                var current = _mediator.DownloadUsernames ?? "";
+                var newText = string.IsNullOrEmpty(current) ? append : current + "," + append;
+                _mediator.CopyUsernamesToDownload(newText);
+            }
+            return;
         }
 
         // handle file/folder drops

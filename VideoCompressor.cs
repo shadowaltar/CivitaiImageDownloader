@@ -28,6 +28,8 @@ public class VideoCompressor : IDisposable
 
     public bool ShouldStop { get; internal set; }
 
+    public bool EnableMotionInterpolation { get; set; }
+
     public Action<string> RaiseAddMessage { get; internal set; }
 
     public Action<string> RaiseAppendMessage { get; internal set; }
@@ -205,7 +207,10 @@ public class VideoCompressor : IDisposable
         //else
 
         settings.VideoCodec = "libx264";
-        settings.CustomOutputArgs = $"-preset fast -crf {qualityRate} -r {newFrameRate}";
+        var fpsFilter = EnableMotionInterpolation
+            ? $"-vf minterpolate=fps={newFrameRate}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
+            : $"-r {newFrameRate}";
+        settings.CustomOutputArgs = $"-preset fast -crf {qualityRate} {fpsFilter}";
         settings.VideoFrameSize = $"{newVideoWidth}x{newVideoHeight}";
 
         ffmpeg.ConvertMedia(path, null, compressedFile, null, settings);

@@ -3,6 +3,7 @@ using CivitaiImageDownloader.Util;
 using LibVLCSharp.Shared;
 using LibVLCSharp.WinForms;
 using NReco.VideoConverter;
+using NReco.VideoInfo;
 
 namespace CivitaiImageDownloader.Tabs;
 
@@ -73,6 +74,19 @@ public partial class ViewerTabControl : UserControl
                 _zoomTimer.Start();
             }
         };
+    }
+
+    public void SelectFirstUser()
+    {
+        foreach (TreeNode root in treeViewNavigator.Nodes)
+        {
+            if (root.Nodes.Count > 0)
+            {
+                treeViewNavigator.SelectedNode = root.Nodes[0];
+                root.Nodes[0].EnsureVisible();
+                return;
+            }
+        }
     }
 
     private void ApplyPendingZoom()
@@ -356,6 +370,29 @@ public partial class ViewerTabControl : UserControl
         StopVideo(panel);
         try
         {
+            // probe: skip if it's actually an image disguised as video
+            var probe = await Task.Run(() =>
+            {
+                try
+                {
+                    var ffprobe = new FFProbe();
+                    var info = ffprobe.GetMediaInfo(filePath);
+                    var stream = info.Streams.FirstOrDefault(s => s.CodecType?.ToLower() == "video");
+                    if (stream == null) return false;
+                    if (stream.CodecName?.ToLower() == "mjpeg") return false;
+                    if (info.FormatName?.Contains("jpeg") == true) return false;
+                    if (info.Duration.TotalSeconds < 0.1) return false;
+                    return true;
+                }
+                catch { return true; } // assume playable on probe failure
+            });
+
+            if (!probe)
+            {
+                pictureBox.Visible = true;
+                return;
+            }
+
             var pb = pictureBox; // closure-captured PictureBox
             var videoView = new VideoView
             {
@@ -405,5 +442,58 @@ public partial class ViewerTabControl : UserControl
                 }
             }
         }
+    }
+
+    protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+    {
+        if (keyData == Keys.Delete && _selectedViewerTile != null)
+        {
+            DeleteSelectedTile();
+            return true;
+        }
+        return base.ProcessCmdKey(ref msg, keyData);
+    }
+
+    private void DeleteSelectedTile()
+    {
+        if (_selectedViewerTile == null) return;
+        var filePath = _selectedViewerTile.Tag as string;
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
+
+        var targetFolder = _mediator.TargetFolder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var deletedDir = Path.Combine(targetFolder, "!deleted");
+        Directory.CreateDirectory(deletedDir);
+
+        var destPath = Path.Combine(deletedDir, Path.GetFileName(filePath));
+        if (File.Exists(destPath))
+        {
+            var name = Path.GetFileNameWithoutExtension(filePath);
+            var ext = Path.GetExtension(filePath);
+            destPath = Path.Combine(deletedDir, $"{name}_{DateTime.Now:yyyyMMddHHmmss}{ext}");
+        }
+
+        try { File.Move(filePath, destPath); }
+        catch { return; }
+
+        // record to redoable-deleted.json
+        var redoFile = Path.Combine(targetFolder, "redoable-deleted.json");
+        var entries = new List<object>();
+        if (File.Exists(redoFile))
+        {
+            try
+            {
+                var json = File.ReadAllText(redoFile);
+                entries = System.Text.Json.JsonSerializer.Deserialize<List<object>>(json) ?? new();
+            }
+            catch { }
+        }
+        entries.Add(new { originalPath = filePath, movedTo = destPath, timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") });
+        File.WriteAllText(redoFile, System.Text.Json.JsonSerializer.Serialize(entries, new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+
+        // remove tile
+        _selectedViewerTile.BackColor = Color.White;
+        flowLayoutPanelViewer.Controls.Remove(_selectedViewerTile);
+        _selectedViewerTile.Dispose();
+        _selectedViewerTile = null;
     }
 }

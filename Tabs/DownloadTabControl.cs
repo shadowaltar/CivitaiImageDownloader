@@ -18,6 +18,7 @@ public partial class DownloadTabControl : UserControl
         txtUsernames.TextChanged += (s, e) => _mediator.DownloadUsernames = txtUsernames.Text;
         _mediator.UsernamesCopiedToDownload += usernames => txtUsernames.Text = usernames;
         _mediator.MessageLogged += AddMessage;
+        btnShowFirstUserInViewer.Click += (s, e) => _mediator.RequestSwitchToViewerTab();
     }
 
     private async void btnDownload_Click(object sender, EventArgs e)
@@ -222,12 +223,29 @@ public partial class DownloadTabControl : UserControl
 
     private void AddMessage(string message)
     {
-        Invoke(() => listBoxMessages.Items.Insert(0, message));
+        Invoke(() =>
+        {
+            listBoxMessages.BeginUpdate();
+            listBoxMessages.Items.Add(message);
+            listBoxMessages.TopIndex = listBoxMessages.Items.Count - 1;
+            listBoxMessages.EndUpdate();
+        });
     }
 
     private void AppendMessage(string message)
     {
-        Invoke(() => { try { var item = (string)listBoxMessages.Items[0]; listBoxMessages.Items[0] = item + message; } catch { } });
+        Invoke(() =>
+        {
+            try
+            {
+                listBoxMessages.BeginUpdate();
+                var lastIdx = listBoxMessages.Items.Count - 1;
+                if (lastIdx >= 0)
+                    listBoxMessages.Items[lastIdx] = listBoxMessages.Items[lastIdx] + message;
+            }
+            catch { }
+            finally { listBoxMessages.EndUpdate(); }
+        });
     }
 
     private void UpdateDownloadingCounter(int downloadingCount)
@@ -251,10 +269,11 @@ public partial class DownloadTabControl : UserControl
             formatString += "{" + i + ",-" + maxColLen[i] + "}|";
 
         var verticalLineLength = 2 + maxColLen.Sum() + maxColLen.Length - 1;
-        List<string> lines = new() { new string('-', verticalLineLength) };
-        foreach (var r in results) { lines.Add(string.Format(formatString, r.UserName, r.ActualDownloadCount, r.DownloadTargetCount, r.FailedUrls.Count, r.SkippedCount)); lines.Add(new string('-', verticalLineLength)); }
+        List<string> lines = new();
+        lines.Add(new string('-', verticalLineLength));
         lines.Add(string.Format(formatString, "UserName", "Success", "Target", "Failed", "Skipped"));
         lines.Add(new string('-', verticalLineLength));
+        foreach (var r in results) { lines.Add(string.Format(formatString, r.UserName, r.ActualDownloadCount, r.DownloadTargetCount, r.FailedUrls.Count, r.SkippedCount)); lines.Add(new string('-', verticalLineLength)); }
         return lines;
     }
 

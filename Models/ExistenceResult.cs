@@ -5,4 +5,4 @@ using System.Text;
 using System.Threading.Tasks;
 
 namespace CivitaiImageDownloader.Models;
-public record ExistenceResult(string Url, string FileName, string FilePath, bool IsExists);
+public record ExistenceResult(string Url, string FileName, string FilePath, bool IsExists, bool WasDownloaded);

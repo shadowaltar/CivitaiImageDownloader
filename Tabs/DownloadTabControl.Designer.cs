@@ -42,6 +42,9 @@ partial class DownloadTabControl
         label1 = new Label();
         txtUsernames = new TextBox();
         btnShowFirstUserInViewer = new Button();
+        lblLimit = new Label();
+        txtLimit = new TextBox();
+        btnClearUsernames = new Button();
         SuspendLayout();
         // 
         // btnCompressInfo
@@ -308,12 +311,21 @@ partial class DownloadTabControl
         label1.TabIndex = 26;
         label1.Text = "Username";
         // 
+        // btnClearUsernames
+        // 
+        btnClearUsernames.Location = new Point(102, 6);
+        btnClearUsernames.Name = "btnClearUsernames";
+        btnClearUsernames.Size = new Size(24, 30);
+        btnClearUsernames.TabIndex = 31;
+        btnClearUsernames.Text = "X";
+        btnClearUsernames.UseVisualStyleBackColor = true;
+        // 
         // txtUsernames
         // 
         txtUsernames.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-        txtUsernames.Location = new Point(108, 6);
+        txtUsernames.Location = new Point(130, 6);
         txtUsernames.Name = "txtUsernames";
-        txtUsernames.Size = new Size(2495, 30);
+        txtUsernames.Size = new Size(2258, 30);
         txtUsernames.TabIndex = 27;
         // 
         // btnShowFirstUserInViewer
@@ -323,6 +335,25 @@ partial class DownloadTabControl
         btnShowFirstUserInViewer.Size = new Size(195, 64);
         btnShowFirstUserInViewer.TabIndex = 28;
         btnShowFirstUserInViewer.Text = "Show first user in Viewer";
+        // 
+        // lblLimit
+        // 
+        lblLimit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        lblLimit.AutoSize = true;
+        lblLimit.Location = new Point(2400, 9);
+        lblLimit.Name = "lblLimit";
+        lblLimit.Size = new Size(50, 24);
+        lblLimit.TabIndex = 29;
+        lblLimit.Text = "Limit:";
+        // 
+        // txtLimit
+        // 
+        txtLimit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        txtLimit.Location = new Point(2452, 6);
+        txtLimit.Name = "txtLimit";
+        txtLimit.Size = new Size(145, 30);
+        txtLimit.TabIndex = 30;
+        txtLimit.Text = "500";
         // 
         // DownloadTabControl
         // 
@@ -355,6 +386,9 @@ partial class DownloadTabControl
         Controls.Add(btnDownload);
         Controls.Add(label1);
         Controls.Add(txtUsernames);
+        Controls.Add(lblLimit);
+        Controls.Add(txtLimit);
+        Controls.Add(btnClearUsernames);
         Name = "DownloadTabControl";
         Size = new Size(2606, 1266);
         ResumeLayout(false);
@@ -390,4 +424,7 @@ partial class DownloadTabControl
     private Label label1;
     internal TextBox txtUsernames;
     private Button btnShowFirstUserInViewer;
+    private Label lblLimit;
+    private TextBox txtLimit;
+    private Button btnClearUsernames;
 }

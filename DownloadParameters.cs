@@ -7,7 +7,8 @@ public record DownloadParameters(string TargetFolder,
                                  List<string> UserNames,
                                  List<string> NsfwLevels,
                                  MediaType MediaType,
-                                 bool SkipLatestIndexFetch)
+                                 bool SkipLatestIndexFetch,
+                                 int Limit = 500)
 {
     internal List<UserMeta> DownloadedUserMeta { get; set; }
 }

@@ -103,7 +103,13 @@ public partial class VideoTabControl : UserControl
 
     private void AddVideoProcessingMessage(string message)
     {
-        Invoke(() => listBoxVideoProcessingMessages.Items.Insert(0, message));
+        Invoke(() =>
+        {
+            listBoxVideoProcessingMessages.BeginUpdate();
+            listBoxVideoProcessingMessages.Items.Add(message);
+            listBoxVideoProcessingMessages.TopIndex = listBoxVideoProcessingMessages.Items.Count - 1;
+            listBoxVideoProcessingMessages.EndUpdate();
+        });
     }
 
     private void AppendVideoProcessingMessage(string message)
@@ -112,10 +118,13 @@ public partial class VideoTabControl : UserControl
         {
             try
             {
-                var item = (string)listBoxVideoProcessingMessages.Items[0];
-                listBoxVideoProcessingMessages.Items[0] = item + message;
+                listBoxVideoProcessingMessages.BeginUpdate();
+                var lastIdx = listBoxVideoProcessingMessages.Items.Count - 1;
+                if (lastIdx >= 0)
+                    listBoxVideoProcessingMessages.Items[lastIdx] = listBoxVideoProcessingMessages.Items[lastIdx] + message;
             }
             catch { }
+            finally { listBoxVideoProcessingMessages.EndUpdate(); }
         });
     }
 
@@ -127,7 +136,7 @@ public partial class VideoTabControl : UserControl
         btnEnhanceFrameRate.Enabled = false;
         try
         {
-            await Task.Run(async () =>
+            await Task.Run(() =>
             {
                 foreach (var name in names)
                 {
@@ -144,43 +153,53 @@ public partial class VideoTabControl : UserControl
 
                     Invoke(() => AddVideoProcessingMessage($"Found {videoFiles.Length} videos for {name}"));
 
+                    // collect files needing enhancement
+                    var toEnhance = new List<(string file, string fileName, double fps)>();
                     foreach (var file in videoFiles)
                     {
-                        var fileName = Path.GetFileName(file);
-                        var tmpFile = file + ".enhanced.mp4";
                         try
                         {
                             var probe = new FFProbe();
                             var info = probe.GetMediaInfo(file);
                             var stream = info.Streams.FirstOrDefault(s => s.CodecType?.ToLower() == "video");
                             if (stream == null) continue;
-
-                            var fps = stream.FrameRate;
-                            if (fps > 24)
-                            {
-                                Invoke(() => AddVideoProcessingMessage($"  Skip {fileName}: {fps:F1}fps (already smooth)"));
-                                continue;
-                            }
-
-                            Invoke(() => AddVideoProcessingMessage($"  Enhancing {fileName}: {fps:F1}fps → 30fps..."));
-                            var ffmpeg = new FFMpegConverter();
-                            ffmpeg.ConvertMedia(file, null, tmpFile, null,
-                                new ConvertSettings
-                                {
-                                    VideoCodec = "libx264",
-                                    CustomOutputArgs = $"-preset fast -crf 23 -vf minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
-                                });
-
-                            File.Delete(file);
-                            File.Move(tmpFile, file);
-                            Invoke(() => AddVideoProcessingMessage($"  Done {fileName}"));
+                            if (stream.FrameRate < 24)
+                                toEnhance.Add((file, Path.GetFileName(file), stream.FrameRate));
                         }
-                        catch (Exception ex)
-                        {
-                            try { File.Delete(tmpFile); } catch { }
-                            Invoke(() => AddVideoProcessingMessage($"  Failed {fileName}: {ex.Message}"));
-                        }
+                        catch { }
                     }
+
+                    Invoke(() => AddVideoProcessingMessage($"  {toEnhance.Count} need enhancement"));
+
+                    var done = 0;
+                    var total = toEnhance.Count;
+                    Parallel.ForEach(toEnhance,
+                        new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+                        item =>
+                        {
+                            var n = Interlocked.Increment(ref done);
+                            var tmpFile = item.file + ".enhanced.mp4";
+                            try
+                            {
+                                Invoke(() => AddVideoProcessingMessage($"  [{n}/{total}] Enhancing {item.fileName}: {item.fps:F1}fps → 30fps..."));
+                                var ffmpeg = new FFMpegConverter();
+                                ffmpeg.ConvertMedia(item.file, null, tmpFile, null,
+                                    new ConvertSettings
+                                    {
+                                        VideoCodec = "libx264",
+                                        CustomOutputArgs = $"-preset fast -crf 23 -vf minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
+                                    });
+
+                                File.Delete(item.file);
+                                File.Move(tmpFile, item.file);
+                                Invoke(() => AddVideoProcessingMessage($"  [{n}/{total}] Done {item.fileName}"));
+                            }
+                            catch (Exception ex)
+                            {
+                                try { File.Delete(tmpFile); } catch { }
+                                Invoke(() => AddVideoProcessingMessage($"  [{n}/{total}] Failed {item.fileName}: {ex.Message}"));
+                            }
+                        });
                 }
             });
         }

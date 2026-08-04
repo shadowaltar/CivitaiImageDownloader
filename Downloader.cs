@@ -13,12 +13,14 @@ namespace CivitaiImageDownloader;
 public class Downloader : IDisposable
 {
     public const string SkipRecordFileName = "media-to-ignore.json";
+    public const string DownloadedRecordFileName = "downloaded-record.json";
 
     private readonly string _rootFolder;
     private readonly string _userName;
     private readonly List<string> _nsfwLevels;
     private readonly MediaType _mediaType;
     private readonly bool _skipLatestIndexFetch;
+    private readonly int _limit;
     private readonly HttpClient httpClient = new()
     {
         Timeout = TimeSpan.FromSeconds(15)
@@ -44,6 +46,7 @@ public class Downloader : IDisposable
         _nsfwLevels = parameters.NsfwLevels;
         _mediaType = parameters.MediaType;
         _skipLatestIndexFetch = parameters.SkipLatestIndexFetch;
+        _limit = parameters.Limit;
     }
 
     public async Task<DownloadResult> Run()
@@ -92,11 +95,13 @@ public class Downloader : IDisposable
         await GetLocalMetaInfo(allMetas, existingInfoFiles);
         Utils.ZipInfoFiles(folder);
 
+        UpdateDownloadedRecord(folder);
+        var downloadedRecord = LoadDownloadedRecord(folder);
         List<ExistenceResult> results = [];
 
         LoopHelper.Loop(ParallelMode, allMetas, MarkMeta);
 
-        var resultString = JsonSerializer.Serialize(results.Where(r => !r.IsExists).ToArray(), new JsonSerializerOptions { WriteIndented = true });
+        var resultString = JsonSerializer.Serialize(results.Where(r => !r.IsExists && r.WasDownloaded).ToArray(), new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(Path.Combine(folder, SkipRecordFileName), resultString);
         return results;
 
@@ -107,7 +112,9 @@ public class Downloader : IDisposable
             var url = meta.Url;
             var fileName = url.Split('/').Last();
             var path = meta.GetExpectedFilePath(folder);
-            var existence = new ExistenceResult(url, meta.ExpectedFileName, path, File.Exists(path) || File.Exists(path.GetAlternativeJpegPath()));
+            var isExists = File.Exists(path) || File.Exists(path.GetAlternativeJpegPath());
+            var wasDownloaded = downloadedRecord.Any(f => f.Contains(meta.ExpectedFileName) || f.Contains(meta.ExpectedFileName.GetAlternativeJpegPath()));
+            var existence = new ExistenceResult(url, meta.ExpectedFileName, path, isExists, wasDownloaded);
             lock (results)
             {
                 results.Add(existence);
@@ -307,6 +314,13 @@ public class Downloader : IDisposable
     private async Task<DownloadResult> DownloadMedia(List<MediaMeta> allMetas, string folder)
     {
         var fileNamesExist = GetFileNamesAlreadyExist(folder);
+        UpdateDownloadedRecord(folder);
+        var existingCount = fileNamesExist.Count;
+        if (existingCount >= _limit)
+        {
+            RaiseMessage?.Invoke($"[LIMIT] Existing file count [{existingCount}] already reached/exceeded the limit [{_limit}], stopping.");
+            return new DownloadResult(_userName, _skippedCount, 0, 0, _failedUrls);
+        }
         var fileNamesToSkip = GetFileNamesToSkip(folder);
         var toDownloadMetas = allMetas.Where(meta => !fileNamesToSkip.Contains(meta.ExpectedFileName)).ToList();
         if (toDownloadMetas.Count != allMetas.Count)
@@ -320,6 +334,8 @@ public class Downloader : IDisposable
             RaiseMessage?.Invoke($"[{fileNamesExist.Count}] was already downloaded; actual downloading count: [{toDownloadMetas.Count}]");
             allMetas = toDownloadMetas;
         }
+        // always download newest items first so the limit keeps the latest media
+        allMetas = allMetas.OrderByDescending(m => m.Id).ToList();
         var actualDownloadedCount = 0;
         var totalCount = allMetas.Count;
 
@@ -330,8 +346,7 @@ public class Downloader : IDisposable
             UpdateDownloadingCounter?.Invoke(count);
             return r;
         });
-
-
+        UpdateDownloadedRecord(folder);
         RaiseMessage?.Invoke($"TargetUser [{_userName}]: downloaded [{actualDownloadedCount}/{totalCount}]; failure: [{_failedUrls.Count}].");
 
         return new DownloadResult(_userName, _skippedCount, totalCount, actualDownloadedCount, _failedUrls);
@@ -379,6 +394,12 @@ public class Downloader : IDisposable
                     shallRetry = !await SaveToFile(url, jpegPath, i, totalCount);
                     if (!shallRetry)
                         Interlocked.Increment(ref actualDownloadedCount);
+
+                    if (!ShouldStop && existingCount + actualDownloadedCount >= _limit)
+                    {
+                        ShouldStop = true;
+                        RaiseMessage?.Invoke($"[LIMIT] Reached the limit [{_limit}] (existing [{existingCount}] + downloaded [{actualDownloadedCount}]), stopping further downloads.");
+                    }
 
                     // detect and try to convert to webp if it is yuv
                     var isConverted = await TryConvertFromWebpOrYuv(jpegPath, url, meta.WebpUrl, i, totalCount);
@@ -508,6 +529,35 @@ public class Downloader : IDisposable
     {
         return Directory.GetFiles(folder).Where(s => !s.EndsWith(".txt") && !s.EndsWith(".json") && !s.EndsWith(".json.zip"))
             .ToList();
+    }
+
+    private List<string> LoadDownloadedRecord(string folder)
+    {
+        var path = Path.Combine(folder, DownloadedRecordFileName);
+        if (!File.Exists(path))
+            return [];
+        try
+        {
+            var content = File.ReadAllText(path);
+            return JsonSerializer.Deserialize<List<string>>(content) ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private void UpdateDownloadedRecord(string folder)
+    {
+        try
+        {
+            var existing = LoadDownloadedRecord(folder);
+            var merged = existing.Concat(GetFileNamesAlreadyExist(folder)).Distinct().ToList();
+            File.WriteAllText(Path.Combine(folder, DownloadedRecordFileName), JsonSerializer.Serialize(merged, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch
+        {
+        }
     }
 
     private async Task<string> GetInfoContentAsync(HttpClient httpClient, string infoUrl)

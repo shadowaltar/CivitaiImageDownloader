@@ -19,6 +19,17 @@ public partial class DownloadTabControl : UserControl
         _mediator.UsernamesCopiedToDownload += usernames => txtUsernames.Text = usernames;
         _mediator.MessageLogged += AddMessage;
         btnShowFirstUserInViewer.Click += (s, e) => _mediator.RequestSwitchToViewerTab();
+        btnClearUsernames.Click += (s, e) => txtUsernames.Clear();
+
+        var ratingCheckBoxes = new[] { chb3Star, chb4Star, chb4p5Star, chb5Star, chb6Star };
+        foreach (var cb in ratingCheckBoxes)
+            cb.CheckedChanged += (s, e) =>
+            {
+                if (!((CheckBox)s!).Checked) return;
+                foreach (var other in ratingCheckBoxes)
+                    if (other != s)
+                        other.Checked = false;
+            };
     }
 
     private async void btnDownload_Click(object sender, EventArgs e)
@@ -128,7 +139,7 @@ public partial class DownloadTabControl : UserControl
             dl.RaiseMessage -= AddMessage;
         }
         foreach (var (un, result) in results)
-            AddMessage($"For user [{un}], marked {result.Count(r => !r.IsExists)}/{result.Count} files non-exist.");
+            AddMessage($"For user [{un}], marked {result.Count(r => !r.IsExists && r.WasDownloaded)}/{result.Count} files non-exist.");
     }
 
     private void btnCopyFailedUrls_Click(object sender, EventArgs e)
@@ -216,20 +227,35 @@ public partial class DownloadTabControl : UserControl
         if (chbDownloadVideo.Checked) mediaType |= Models.MediaType.Video;
         if (mediaType == Models.MediaType.None) { AddMessage("Must select at least one media type."); return null; }
 
-        var p = new DownloadParameters(_mediator.TargetFolder, "", userNames, nsfwLevels, mediaType, chbAlwaysDownloadLatest.Checked);
+        var p = new DownloadParameters(_mediator.TargetFolder, "", userNames, nsfwLevels, mediaType, chbAlwaysDownloadLatest.Checked, GetLimit());
         p.DownloadedUserMeta = _downloadedUserMeta;
         return p;
     }
 
+    private int GetLimit()
+    {
+        if (int.TryParse(txtLimit.Text.Trim(), out var limit) && limit > 0)
+            return limit;
+        AddMessage($"Invalid limit value \"{txtLimit.Text}\", using default 500.");
+        txtLimit.Text = "500";
+        return 500;
+    }
+
     private void AddMessage(string message)
     {
-        Invoke(() =>
+        try
         {
-            listBoxMessages.BeginUpdate();
-            listBoxMessages.Items.Add(message);
-            listBoxMessages.TopIndex = listBoxMessages.Items.Count - 1;
-            listBoxMessages.EndUpdate();
-        });
+            Invoke(() =>
+            {
+                listBoxMessages.BeginUpdate();
+                listBoxMessages.Items.Add(message);
+                listBoxMessages.TopIndex = listBoxMessages.Items.Count - 1;
+                listBoxMessages.EndUpdate();
+            });
+        }
+        catch
+        {
+        }
     }
 
     private void AppendMessage(string message)

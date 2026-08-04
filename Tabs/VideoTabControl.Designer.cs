@@ -26,6 +26,7 @@ partial class VideoTabControl
         listBoxVideoProcessingMessages.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
         listBoxVideoProcessingMessages.Font = new Font("Cascadia Code", 10F);
         listBoxVideoProcessingMessages.FormattingEnabled = true;
+        listBoxVideoProcessingMessages.IntegralHeight = false;
         listBoxVideoProcessingMessages.ItemHeight = 27;
         listBoxVideoProcessingMessages.Location = new Point(6, 120);
         listBoxVideoProcessingMessages.Name = "listBoxVideoProcessingMessages";

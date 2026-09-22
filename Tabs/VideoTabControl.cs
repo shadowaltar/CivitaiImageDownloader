@@ -243,13 +243,16 @@ public partial class VideoTabControl : UserControl
                             var info = probe.GetMediaInfo(file);
                             var stream = info.Streams.FirstOrDefault(s => s.CodecType?.ToLower() == "video");
                             if (stream == null) continue;
-                            if (stream.FrameRate < minFps)
-                                toEnhance.Add((file, Path.GetFileName(file), stream.FrameRate));
+                            // Use the effective (unique) frame rate so videos that only look high-fps
+                            // because of duplicated frames are still detected as needing enhancement.
+                            var effectiveFps = GetEffectiveFrameRate(file, info.Duration.TotalSeconds, stream.FrameRate);
+                            if (effectiveFps < minFps)
+                                toEnhance.Add((file, Path.GetFileName(file), effectiveFps));
                         }
                         catch { }
                     }
 
-                    Invoke(() => AddVideoProcessingMessage($"  {toEnhance.Count} need enhancement (fps < {minFps})"));
+                    Invoke(() => AddVideoProcessingMessage($"  {toEnhance.Count} need enhancement (effective fps < {minFps})"));
 
                     var done = 0;
                     var total = toEnhance.Count;
@@ -267,7 +270,7 @@ public partial class VideoTabControl : UserControl
                                     new ConvertSettings
                                     {
                                         VideoCodec = "libx264",
-                                        CustomOutputArgs = $"-preset fast -crf 23 -vf minterpolate=fps={targetFps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
+                                        CustomOutputArgs = $"-preset fast -crf 23 -vf mpdecimate,minterpolate=fps={targetFps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
                                     });
 
                                 File.Delete(item.file);
@@ -291,5 +294,45 @@ public partial class VideoTabControl : UserControl
                 btnEnhanceFrameRate.Enabled = true;
             });
         }
+    }
+
+    // Unique frames per second = number of frames left after dropping duplicates / duration.
+    private static double GetEffectiveFrameRate(string file, double durationSeconds, double fallbackFps)
+    {
+        if (durationSeconds <= 0)
+            return fallbackFps;
+        var uniqueFrames = CountUniqueFrames(file);
+        if (uniqueFrames <= 0)
+            return fallbackFps;
+        return uniqueFrames / durationSeconds;
+    }
+
+    private static int CountUniqueFrames(string file)
+    {
+        var psi = new ProcessStartInfo(GetFFmpegPath())
+        {
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            Arguments = $"-hide_banner -i \"{file}\" -vf mpdecimate -an -f null -"
+        };
+        using var proc = Process.Start(psi);
+        if (proc == null)
+            return -1;
+        var stderr = proc.StandardError.ReadToEnd();
+        proc.WaitForExit();
+        var matches = System.Text.RegularExpressions.Regex.Matches(stderr, @"frame=\s*(\d+)");
+        if (matches.Count == 0)
+            return -1;
+        return int.TryParse(matches[^1].Groups[1].Value, out var frames) ? frames : -1;
+    }
+
+    private static string GetFFmpegPath()
+    {
+        var converter = new FFMpegConverter();
+        var dir = string.IsNullOrWhiteSpace(converter.FFMpegToolPath) ? AppContext.BaseDirectory : converter.FFMpegToolPath;
+        var exe = string.IsNullOrWhiteSpace(converter.FFMpegExeName) ? "ffmpeg.exe" : converter.FFMpegExeName;
+        var full = Path.Combine(dir, exe);
+        return File.Exists(full) ? full : exe;
     }
 }

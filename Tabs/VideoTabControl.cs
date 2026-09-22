@@ -29,6 +29,15 @@ public partial class VideoTabControl : UserControl
         txtVideoProcessingUsers.Text = _mediator.DownloadUsernames;
     }
 
+    private void btnSelectFolder_Click(object sender, EventArgs e)
+    {
+        using var dlg = new FolderBrowserDialog();
+        if (dlg.ShowDialog(this) == DialogResult.OK)
+        {
+            txtVideoProcessingUsers.Text = dlg.SelectedPath;
+        }
+    }
+
     private async void btnCompressVideo_Click(object sender, EventArgs e)
     {
         Invoke(listBoxVideoProcessingMessages.Items.Clear);
@@ -133,6 +142,22 @@ public partial class VideoTabControl : UserControl
         List<string> names = txtVideoProcessingUsers.ParseUserNames();
         if (names.Count == 0) return;
 
+        if (!double.TryParse(txtMinFps.Text.Trim(), out var minFps) || minFps <= 0)
+        {
+            AddVideoProcessingMessage($"Invalid Min FPS \"{txtMinFps.Text}\", using default 24.");
+            minFps = 24;
+        }
+        if (!double.TryParse(txtTargetFps.Text.Trim(), out var targetFps) || targetFps <= 0)
+        {
+            AddVideoProcessingMessage($"Invalid Target FPS \"{txtTargetFps.Text}\", using default 30.");
+            targetFps = 30;
+        }
+        if (targetFps <= minFps)
+        {
+            AddVideoProcessingMessage("Target FPS must be greater than Min FPS.");
+            return;
+        }
+
         btnEnhanceFrameRate.Enabled = false;
         try
         {
@@ -140,7 +165,9 @@ public partial class VideoTabControl : UserControl
             {
                 foreach (var name in names)
                 {
-                    var folder = FolderHelper.GetFolder(_mediator.TargetFolder, name);
+                    var folder = Directory.Exists(name)
+                        ? name
+                        : FolderHelper.GetFolder(_mediator.TargetFolder, name);
                     if (string.IsNullOrEmpty(folder))
                     {
                         Invoke(() => AddVideoProcessingMessage($"Skipping {name}: folder not found"));
@@ -163,13 +190,13 @@ public partial class VideoTabControl : UserControl
                             var info = probe.GetMediaInfo(file);
                             var stream = info.Streams.FirstOrDefault(s => s.CodecType?.ToLower() == "video");
                             if (stream == null) continue;
-                            if (stream.FrameRate < 24)
+                            if (stream.FrameRate < minFps)
                                 toEnhance.Add((file, Path.GetFileName(file), stream.FrameRate));
                         }
                         catch { }
                     }
 
-                    Invoke(() => AddVideoProcessingMessage($"  {toEnhance.Count} need enhancement"));
+                    Invoke(() => AddVideoProcessingMessage($"  {toEnhance.Count} need enhancement (fps < {minFps})"));
 
                     var done = 0;
                     var total = toEnhance.Count;
@@ -181,13 +208,13 @@ public partial class VideoTabControl : UserControl
                             var tmpFile = item.file + ".enhanced.mp4";
                             try
                             {
-                                Invoke(() => AddVideoProcessingMessage($"  [{n}/{total}] Enhancing {item.fileName}: {item.fps:F1}fps → 30fps..."));
+                                Invoke(() => AddVideoProcessingMessage($"  [{n}/{total}] Enhancing {item.fileName}: {item.fps:F1}fps → {targetFps}fps..."));
                                 var ffmpeg = new FFMpegConverter();
                                 ffmpeg.ConvertMedia(item.file, null, tmpFile, null,
                                     new ConvertSettings
                                     {
                                         VideoCodec = "libx264",
-                                        CustomOutputArgs = $"-preset fast -crf 23 -vf minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
+                                        CustomOutputArgs = $"-preset fast -crf 23 -vf minterpolate=fps={targetFps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
                                     });
 
                                 File.Delete(item.file);

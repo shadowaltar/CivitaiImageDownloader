@@ -11,4 +11,6 @@ public record DownloadParameters(string TargetFolder,
                                  int Limit = 500)
 {
     internal List<UserMeta> DownloadedUserMeta { get; set; }
+
+    public bool DownloadInfoOnly { get; set; }
 }

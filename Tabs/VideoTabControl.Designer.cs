@@ -19,6 +19,11 @@ partial class VideoTabControl
         txtVideoProcessingUsers = new TextBox();
         btnCompressVideo = new Button();
         btnEnhanceFrameRate = new Button();
+        btnSelectFolder = new Button();
+        lblMinFps = new Label();
+        txtMinFps = new TextBox();
+        lblTargetFps = new Label();
+        txtTargetFps = new TextBox();
         SuspendLayout();
         // 
         // listBoxVideoProcessingMessages
@@ -81,8 +86,57 @@ partial class VideoTabControl
         btnEnhanceFrameRate.UseVisualStyleBackColor = true;
         btnEnhanceFrameRate.Click += btnEnhanceFrameRate_Click;
         // 
+        // btnSelectFolder
+        // 
+        btnSelectFolder.Location = new Point(530, 80);
+        btnSelectFolder.Name = "btnSelectFolder";
+        btnSelectFolder.Size = new Size(220, 34);
+        btnSelectFolder.TabIndex = 6;
+        btnSelectFolder.Text = "Select Folder...";
+        btnSelectFolder.UseVisualStyleBackColor = true;
+        btnSelectFolder.Click += btnSelectFolder_Click;
+        // 
+        // lblMinFps
+        // 
+        lblMinFps.AutoSize = true;
+        lblMinFps.Location = new Point(758, 86);
+        lblMinFps.Name = "lblMinFps";
+        lblMinFps.Size = new Size(69, 24);
+        lblMinFps.TabIndex = 7;
+        lblMinFps.Text = "Min FPS";
+        // 
+        // txtMinFps
+        // 
+        txtMinFps.Location = new Point(833, 80);
+        txtMinFps.Name = "txtMinFps";
+        txtMinFps.Size = new Size(50, 30);
+        txtMinFps.TabIndex = 8;
+        txtMinFps.Text = "24";
+        // 
+        // lblTargetFps
+        // 
+        lblTargetFps.AutoSize = true;
+        lblTargetFps.Location = new Point(891, 86);
+        lblTargetFps.Name = "lblTargetFps";
+        lblTargetFps.Size = new Size(86, 24);
+        lblTargetFps.TabIndex = 9;
+        lblTargetFps.Text = "Target FPS";
+        // 
+        // txtTargetFps
+        // 
+        txtTargetFps.Location = new Point(983, 80);
+        txtTargetFps.Name = "txtTargetFps";
+        txtTargetFps.Size = new Size(50, 30);
+        txtTargetFps.TabIndex = 10;
+        txtTargetFps.Text = "30";
+        // 
         // VideoTabControl
         // 
+        Controls.Add(txtTargetFps);
+        Controls.Add(lblTargetFps);
+        Controls.Add(txtMinFps);
+        Controls.Add(lblMinFps);
+        Controls.Add(btnSelectFolder);
         Controls.Add(btnEnhanceFrameRate);
         Controls.Add(btnCompressVideo);
         Controls.Add(txtVideoProcessingUsers);
@@ -101,4 +155,9 @@ partial class VideoTabControl
     private TextBox txtVideoProcessingUsers;
     private Button btnCopyFromDownloadTab;
     private Button btnEnhanceFrameRate;
+    private Button btnSelectFolder;
+    private Label lblMinFps;
+    private TextBox txtMinFps;
+    private Label lblTargetFps;
+    private TextBox txtTargetFps;
 }

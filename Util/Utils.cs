@@ -8,6 +8,9 @@ public static class Utils
 {
     private static readonly string[] UnwantedInfoKeys = ["hash", "meta", "username", "baseModel", "modelVersionIds", "stats"];
 
+    private static bool IsInfoFile(string file) =>
+        !file.EndsWith(Downloader.SkipRecordFileName) && !file.EndsWith(Downloader.DownloadedRecordFileName);
+
     public static void StripUnwantedFields(JsonNode? item)
     {
         if (item is JsonObject obj)
@@ -56,7 +59,7 @@ public static class Utils
         }
 
         // delete all old json files
-        jsonFiles = Directory.GetFiles(folder, "*.json").Where(f => !f.EndsWith(Downloader.SkipRecordFileName)).ToList();
+        jsonFiles = Directory.GetFiles(folder, "*.json").Where(IsInfoFile).ToList();
         foreach (var file in jsonFiles)
         {
             try { File.Delete(file); }
@@ -107,21 +110,27 @@ public static class Utils
 
     internal static List<string> GetInfoFiles(string folder)
     {
-        var jsonFiles = Directory.GetFiles(folder, "*.json").Where(f => !f.EndsWith(Downloader.SkipRecordFileName)).ToList();
+        var jsonFiles = Directory.GetFiles(folder, "*.json").Where(IsInfoFile).ToList();
         if (jsonFiles.Count == 0)
         {
             var infoZipPath = Path.Combine(folder, "info.json.zip");
             if (File.Exists(infoZipPath))
             {
-                ZipFile.ExtractToDirectory(infoZipPath, folder);
+                using var archive = ZipFile.OpenRead(infoZipPath);
+                foreach (var entry in archive.Entries)
+                {
+                    if (string.IsNullOrEmpty(entry.Name) || !IsInfoFile(entry.Name))
+                        continue;
+                    entry.ExtractToFile(Path.Combine(folder, entry.Name), overwrite: true);
+                }
             }
         }
-        return Directory.GetFiles(folder, "*.json").Where(f => !f.EndsWith(Downloader.SkipRecordFileName)).ToList();
+        return Directory.GetFiles(folder, "*.json").Where(IsInfoFile).ToList();
     }
 
     internal static void ZipInfoFiles(string folder)
     {
-        var jsonFiles = Directory.GetFiles(folder, "*.json").Where(f => !f.EndsWith(Downloader.SkipRecordFileName)).ToList();
+        var jsonFiles = Directory.GetFiles(folder, "*.json").Where(IsInfoFile).ToList();
         if (jsonFiles.Count == 0)
             return;
 

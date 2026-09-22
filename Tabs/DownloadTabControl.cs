@@ -32,7 +32,11 @@ public partial class DownloadTabControl : UserControl
             };
     }
 
-    private async void btnDownload_Click(object sender, EventArgs e)
+    private async void btnDownload_Click(object sender, EventArgs e) => await RunDownload(infoOnly: false);
+
+    private async void btnDownloadInfoOnly_Click(object sender, EventArgs e) => await RunDownload(infoOnly: true);
+
+    private async Task RunDownload(bool infoOnly)
     {
         _mediator.Stopping = false;
         _mediator.DownloadResults.Clear();
@@ -40,7 +44,7 @@ public partial class DownloadTabControl : UserControl
         Invoke(listBoxMessages.Items.Clear);
         UpdateDownloadingCounter(-1);
 
-        var parameters = CreateDownloadParameters();
+        var parameters = CreateDownloadParameters(infoOnly);
         if (parameters == null) return;
 
         _mediator.RecordDownloadHistory(txtUsernames.Text.Trim());
@@ -209,7 +213,7 @@ public partial class DownloadTabControl : UserControl
         return null;
     }
 
-    private DownloadParameters? CreateDownloadParameters()
+    private DownloadParameters? CreateDownloadParameters(bool infoOnly = false)
     {
         if (!Directory.Exists(_mediator.TargetFolder)) { MessageBox.Show(this, "Invalid target folder."); return null; }
         List<string> userNames = txtUsernames.ParseUserNames();
@@ -225,10 +229,13 @@ public partial class DownloadTabControl : UserControl
         var mediaType = Models.MediaType.None;
         if (chbDownloadImage.Checked) mediaType |= Models.MediaType.Image;
         if (chbDownloadVideo.Checked) mediaType |= Models.MediaType.Video;
-        if (mediaType == Models.MediaType.None) { AddMessage("Must select at least one media type."); return null; }
+        if (!infoOnly && mediaType == Models.MediaType.None) { AddMessage("Must select at least one media type."); return null; }
 
-        var p = new DownloadParameters(_mediator.TargetFolder, "", userNames, nsfwLevels, mediaType, chbAlwaysDownloadLatest.Checked, GetLimit());
-        p.DownloadedUserMeta = _downloadedUserMeta;
+        var p = new DownloadParameters(_mediator.TargetFolder, "", userNames, nsfwLevels, mediaType, chbAlwaysDownloadLatest.Checked, GetLimit())
+        {
+            DownloadedUserMeta = _downloadedUserMeta,
+            DownloadInfoOnly = infoOnly
+        };
         return p;
     }
 

@@ -78,10 +78,36 @@ public class VideoCompressor : IDisposable
         }
         else
         {
-            var folder = Path.GetDirectoryName(name) ?? "";
             var ffmpeg = new FFMpegConverter();
-            var result = await Compress(folder, ffmpeg, "", name);
-            RaiseAddMessage?.Invoke($"Finished, result: {(result == VideoCompressResult.Good ? "Good" : "Failed")}");
+            if (Directory.Exists(name))
+            {
+                var files = Directory.GetFiles(name, "*", SearchOption.AllDirectories)
+                    .Where(f => Path.GetExtension(f).ToLower() is ".mp4" or ".webm" or ".mov" or ".avi")
+                    .ToArray();
+                var totalCount = files.Length;
+                int goodCount = 0;
+                int failedCount = 0;
+                for (int i = 0; i < totalCount; i++)
+                {
+                    string logPrefix = $"[{i}/{totalCount}] ";
+                    var result = await Compress(name, ffmpeg, logPrefix, files[i]);
+                    if (result == VideoCompressResult.Failed)
+                    {
+                        failedCount++;
+                    }
+                    else
+                    {
+                        goodCount++;
+                    }
+                }
+                RaiseAddMessage?.Invoke($"Finished. Good/Error/Total: {goodCount}/{failedCount}/{totalCount}");
+            }
+            else
+            {
+                var folder = Path.GetDirectoryName(name) ?? "";
+                var result = await Compress(folder, ffmpeg, "", name);
+                RaiseAddMessage?.Invoke($"Finished, result: {(result == VideoCompressResult.Good ? "Good" : "Failed")}");
+            }
         }
     }
 
@@ -102,7 +128,7 @@ public class VideoCompressor : IDisposable
                 // skip small files
                 return VideoCompressResult.SkippedFileSizeTooSmall;
             }
-            compressedFile = Path.Combine(folder, "compressing_" + fi.Name);
+            compressedFile = Path.Combine(Path.GetDirectoryName(path) ?? folder, "compressing_" + fi.Name);
             RaiseAddMessage?.Invoke($"{logPrefix}Compress video: {fi.Name} ...");
 
             await Task.Run(() =>

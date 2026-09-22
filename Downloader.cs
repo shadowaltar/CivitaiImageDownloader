@@ -20,6 +20,7 @@ public class Downloader : IDisposable
     private readonly List<string> _nsfwLevels;
     private readonly MediaType _mediaType;
     private readonly bool _skipLatestIndexFetch;
+    private readonly bool _downloadInfoOnly;
     private readonly int _limit;
     private readonly HttpClient httpClient = new()
     {
@@ -46,6 +47,7 @@ public class Downloader : IDisposable
         _nsfwLevels = parameters.NsfwLevels;
         _mediaType = parameters.MediaType;
         _skipLatestIndexFetch = parameters.SkipLatestIndexFetch;
+        _downloadInfoOnly = parameters.DownloadInfoOnly;
         _limit = parameters.Limit;
     }
 
@@ -69,6 +71,14 @@ public class Downloader : IDisposable
 
         await GetAllMetaInfos(allMetas, folder);
         Utils.ZipInfoFiles(folder);
+
+        if (_downloadInfoOnly)
+        {
+            RaiseMessage?.Invoke($"TargetUser [{_userName}]: downloaded info only, skipped media.");
+            httpClient.Dispose();
+            return new DownloadResult(_userName, _skippedCount, 0, 0, _failedUrls);
+        }
+
         var result = await DownloadMedia(allMetas, folder);
 
         httpClient.Dispose();

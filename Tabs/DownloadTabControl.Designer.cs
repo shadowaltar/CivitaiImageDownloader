@@ -42,6 +42,7 @@ partial class DownloadTabControl
         label1 = new Label();
         txtUsernames = new TextBox();
         btnShowFirstUserInViewer = new Button();
+        btnDownloadInfoOnly = new Button();
         lblLimit = new Label();
         txtLimit = new TextBox();
         btnClearUsernames = new Button();
@@ -336,6 +337,16 @@ partial class DownloadTabControl
         btnShowFirstUserInViewer.TabIndex = 28;
         btnShowFirstUserInViewer.Text = "Show first user in Viewer";
         // 
+        // btnDownloadInfoOnly
+        // 
+        btnDownloadInfoOnly.Location = new Point(867, 112);
+        btnDownloadInfoOnly.Name = "btnDownloadInfoOnly";
+        btnDownloadInfoOnly.Size = new Size(195, 64);
+        btnDownloadInfoOnly.TabIndex = 32;
+        btnDownloadInfoOnly.Text = "Download Info Only";
+        btnDownloadInfoOnly.UseVisualStyleBackColor = true;
+        btnDownloadInfoOnly.Click += btnDownloadInfoOnly_Click;
+        // 
         // lblLimit
         // 
         lblLimit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -358,6 +369,7 @@ partial class DownloadTabControl
         // DownloadTabControl
         // 
         Controls.Add(btnShowFirstUserInViewer);
+        Controls.Add(btnDownloadInfoOnly);
         Controls.Add(btnCompressInfo);
         Controls.Add(btnSetUserNameTextByRating);
         Controls.Add(btnMoveUsersToRating);
@@ -424,6 +436,7 @@ partial class DownloadTabControl
     private Label label1;
     internal TextBox txtUsernames;
     private Button btnShowFirstUserInViewer;
+    private Button btnDownloadInfoOnly;
     private Label lblLimit;
     private TextBox txtLimit;
     private Button btnClearUsernames;

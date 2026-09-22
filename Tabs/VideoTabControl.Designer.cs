@@ -24,6 +24,7 @@ partial class VideoTabControl
         txtMinFps = new TextBox();
         lblTargetFps = new Label();
         txtTargetFps = new TextBox();
+        btnWebpToMp4 = new Button();
         SuspendLayout();
         // 
         // listBoxVideoProcessingMessages
@@ -35,7 +36,7 @@ partial class VideoTabControl
         listBoxVideoProcessingMessages.ItemHeight = 27;
         listBoxVideoProcessingMessages.Location = new Point(6, 120);
         listBoxVideoProcessingMessages.Name = "listBoxVideoProcessingMessages";
-        listBoxVideoProcessingMessages.Size = new Size(3687, 1300);
+        listBoxVideoProcessingMessages.Size = new Size(1591, 582);
         listBoxVideoProcessingMessages.TabIndex = 0;
         listBoxVideoProcessingMessages.DoubleClick += listBoxVideoProcessingMessages_DoubleClick;
         // 
@@ -63,7 +64,7 @@ partial class VideoTabControl
         txtVideoProcessingUsers.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
         txtVideoProcessingUsers.Location = new Point(99, 47);
         txtVideoProcessingUsers.Name = "txtVideoProcessingUsers";
-        txtVideoProcessingUsers.Size = new Size(3594, 30);
+        txtVideoProcessingUsers.Size = new Size(1498, 30);
         txtVideoProcessingUsers.TabIndex = 3;
         // 
         // btnCompressVideo
@@ -130,8 +131,19 @@ partial class VideoTabControl
         txtTargetFps.TabIndex = 10;
         txtTargetFps.Text = "30";
         // 
+        // btnWebpToMp4
+        // 
+        btnWebpToMp4.Location = new Point(1050, 80);
+        btnWebpToMp4.Name = "btnWebpToMp4";
+        btnWebpToMp4.Size = new Size(200, 34);
+        btnWebpToMp4.TabIndex = 11;
+        btnWebpToMp4.Text = "Webp/Gif -> MP4";
+        btnWebpToMp4.UseVisualStyleBackColor = true;
+        btnWebpToMp4.Click += btnWebpToMp4_Click;
+        // 
         // VideoTabControl
         // 
+        Controls.Add(btnWebpToMp4);
         Controls.Add(txtTargetFps);
         Controls.Add(lblTargetFps);
         Controls.Add(txtMinFps);
@@ -160,4 +172,5 @@ partial class VideoTabControl
     private TextBox txtMinFps;
     private Label lblTargetFps;
     private TextBox txtTargetFps;
+    private Button btnWebpToMp4;
 }

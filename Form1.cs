@@ -16,6 +16,10 @@ public partial class MainForm : Form
     {
         InitializeComponent();
 
+        using var iconStream = typeof(MainForm).Assembly.GetManifestResourceStream("CivitaiImageDownloader.app.ico");
+        if (iconStream != null)
+            Icon = new Icon(iconStream);
+
         txtTargetFolder.Text = DefaultTargetFolder;
         _mediator.TargetFolder = txtTargetFolder.Text;
 

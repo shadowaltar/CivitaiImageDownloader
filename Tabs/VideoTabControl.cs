@@ -38,6 +38,59 @@ public partial class VideoTabControl : UserControl
         }
     }
 
+    private async void btnWebpToMp4_Click(object sender, EventArgs e)
+    {
+        Invoke(listBoxVideoProcessingMessages.Items.Clear);
+
+        // A selected folder is used verbatim (so paths containing commas work);
+        // otherwise fall back to parsing usernames.
+        var input = txtVideoProcessingUsers.Text.Trim();
+        List<string> names;
+        if (Directory.Exists(input))
+        {
+            names = [input];
+        }
+        else
+        {
+            names = txtVideoProcessingUsers.ParseUserNames();
+            if (names.Count == 0) return;
+        }
+
+        if (!int.TryParse(txtTargetFps.Text.Trim(), out var targetFps) || targetFps <= 0)
+        {
+            AddVideoProcessingMessage($"Invalid Target FPS \"{txtTargetFps.Text}\", using default 30.");
+            targetFps = 30;
+        }
+
+        btnWebpToMp4.Enabled = false;
+        try
+        {
+            foreach (var name in names)
+            {
+                var folder = Directory.Exists(name)
+                    ? name
+                    : FolderHelper.GetFolder(_mediator.TargetFolder, name);
+                if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
+                {
+                    AddVideoProcessingMessage($"Skipping {name}: folder not found");
+                    continue;
+                }
+
+                AddVideoProcessingMessage($"Scanning {folder} (including subfolders) ...");
+                var converter = new AnimatedImageToMp4Converter(folder, targetFps)
+                {
+                    RaiseMessage = AddVideoProcessingMessage
+                };
+                await converter.Run();
+            }
+        }
+        finally
+        {
+            AddVideoProcessingMessage("Webp to MP4 complete.");
+            btnWebpToMp4.Enabled = true;
+        }
+    }
+
     private async void btnCompressVideo_Click(object sender, EventArgs e)
     {
         Invoke(listBoxVideoProcessingMessages.Items.Clear);

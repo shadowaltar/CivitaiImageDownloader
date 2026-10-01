@@ -8,18 +8,22 @@ namespace CivitaiImageDownloader.Tabs;
 public partial class DownloadTabControl : UserControl
 {
     private readonly AppMediator _mediator;
-    private List<UserMeta> _downloadedUserMeta = new();
+    private Downloader? _activeDownloader;
 
     public DownloadTabControl(AppMediator mediator)
     {
         _mediator = mediator;
         InitializeComponent();
+        ListBoxCopyHelper.EnableCopy(listBoxMessages);
 
         txtUsernames.TextChanged += (s, e) => _mediator.DownloadUsernames = txtUsernames.Text;
         _mediator.UsernamesCopiedToDownload += usernames => txtUsernames.Text = usernames;
         _mediator.MessageLogged += AddMessage;
         btnShowFirstUserInViewer.Click += (s, e) => _mediator.RequestSwitchToViewerTab();
         btnClearUsernames.Click += (s, e) => txtUsernames.Clear();
+        btnSetUserNameTextByRating.Click += btnSetUserNameTextByRating_Click;
+        btnCreateFolder.Click += btnCreateFolder_Click;
+        btnFreezeCurrentFiles.Click += btnFreezeCurrentFiles_Click;
 
         var ratingCheckBoxes = new[] { chb3Star, chb4Star, chb4p5Star, chb5Star, chb6Star };
         foreach (var cb in ratingCheckBoxes)
@@ -50,23 +54,33 @@ public partial class DownloadTabControl : UserControl
         _mediator.RecordDownloadHistory(txtUsernames.Text.Trim());
 
         Downloader? dl = null;
-        foreach (var un in parameters.UserNames)
+        try
         {
-            if (_mediator.Stopping && dl != null)
+            foreach (var un in parameters.UserNames)
             {
-                dl.ShouldStop = true;
-                AddMessage("Download stopped.");
-                break;
+                if (_mediator.Stopping && dl != null)
+                {
+                    dl.ShouldStop = true;
+                    AddMessage("Download stopped.");
+                    break;
+                }
+                var p = parameters with { UserName = un };
+                dl = new Downloader(p);
+                _activeDownloader = dl;
+                dl.RaiseMessage += AddMessage;
+                dl.UpdateDownloadingCounter += UpdateDownloadingCounter;
+                var result = await dl.Run();
+                _mediator.DownloadResults.Add(result);
+                dl.RaiseMessage -= AddMessage;
+                dl.UpdateDownloadingCounter -= UpdateDownloadingCounter;
+                dl.Dispose();
+                _activeDownloader = null;
             }
-            var p = parameters with { UserName = un };
-            dl = new Downloader(p);
-            dl.RaiseMessage += AddMessage;
-            dl.UpdateDownloadingCounter += UpdateDownloadingCounter;
-            var result = await dl.Run();
-            _mediator.DownloadResults.Add(result);
-            dl.RaiseMessage -= AddMessage;
-            dl.UpdateDownloadingCounter -= UpdateDownloadingCounter;
-            dl.Dispose();
+        }
+        finally
+        {
+            _activeDownloader = null;
+            _mediator.Stopping = false;
         }
 
         AddMessage("====SUMMARY====");
@@ -75,7 +89,16 @@ public partial class DownloadTabControl : UserControl
         AddMessage("====SUMMARY====");
     }
 
-    private void btnStop_Click(object sender, EventArgs e) => _mediator.Stopping = true;
+    private void btnStop_Click(object sender, EventArgs e)
+    {
+        _mediator.Stopping = true;
+        var active = _activeDownloader;
+        if (active != null)
+        {
+            active.ShouldStop = true;
+            AddMessage("Stopping after the current file...");
+        }
+    }
 
     private void btnDeleteInfoFiles_Click(object sender, EventArgs e)
     {
@@ -120,7 +143,7 @@ public partial class DownloadTabControl : UserControl
             if (userName.Length == 0) continue;
             var folder = FolderHelper.GetFolder(_mediator.TargetFolder, userName);
             if (!string.IsNullOrEmpty(folder)) { AddMessage("Use folder: " + folder); _mediator.CurrentUserFolder = folder; }
-            else { AddMessage("Folder not found: " + folder); return; }
+            else { AddMessage("Folder not found: " + folder); continue; }
             Process.Start("explorer.exe", folder);
         }
     }
@@ -144,6 +167,28 @@ public partial class DownloadTabControl : UserControl
         }
         foreach (var (un, result) in results)
             AddMessage($"For user [{un}], marked {result.Count(r => !r.IsExists && r.WasDownloaded)}/{result.Count} files non-exist.");
+    }
+
+    private async void btnFreezeCurrentFiles_Click(object sender, EventArgs e)
+    {
+        Invoke(listBoxMessages.Items.Clear);
+        _mediator.DownloadResults.Clear();
+        var parameters = CreateDownloadParameters(infoOnly: true);
+        if (parameters == null) return;
+
+        var results = new Dictionary<string, List<ExistenceResult>>();
+        foreach (var un in parameters.UserNames)
+        {
+            var p = parameters with { UserName = un };
+            using var dl = new Downloader(p);
+            dl.RaiseMessage += AddMessage;
+            var result = await dl.MarkNonExistFiles(markAllMissing: true);
+            results[un] = result;
+            dl.RaiseMessage -= AddMessage;
+        }
+        foreach (var (un, result) in results)
+            AddMessage($"For user [{un}], froze {result.Count(r => !r.IsExists)}/{result.Count} files (no re-download).");
+        AddMessage("Frozen (marked as downloaded + ignored). Future downloads still fetch newer items.");
     }
 
     private void btnCopyFailedUrls_Click(object sender, EventArgs e)
@@ -207,6 +252,50 @@ public partial class DownloadTabControl : UserControl
         AddMessage("Compress Info Files complete.");
     }
 
+    private void btnSetUserNameTextByRating_Click(object? sender, EventArgs e)
+    {
+        _mediator.CurrentUserFolder = "";
+        var subFolder = GetSubFolderByRating(chb3Star.Checked, chb4Star.Checked, chb4p5Star.Checked, chb5Star.Checked, chb6Star.Checked);
+        if (subFolder == null) { AddMessage("Select exactly one rating folder first."); return; }
+        var ratingDir = Path.Combine(_mediator.TargetFolder, subFolder);
+        if (!Directory.Exists(ratingDir)) { AddMessage($"Rating folder not found: {ratingDir}"); return; }
+        var users = Directory.GetDirectories(ratingDir)
+            .Select(Path.GetFileName)
+            .Where(n => !string.IsNullOrEmpty(n) && !n!.StartsWith('!'))
+            .Distinct()
+            .ToList();
+        txtUsernames.Text = string.Join(",", users);
+        AddMessage($"Set {users.Count} username(s) from {subFolder}.");
+    }
+
+    private void btnCreateFolder_Click(object? sender, EventArgs e)
+    {
+        _mediator.CurrentUserFolder = "";
+        if (!Directory.Exists(_mediator.TargetFolder)) { MessageBox.Show(this, "Invalid target folder."); return; }
+        var userNames = txtUsernames.ParseUserNames();
+        if (userNames.Count == 0) return;
+
+        foreach (var userName in userNames)
+        {
+            var existing = FolderHelper.GetFolder(_mediator.TargetFolder, userName);
+            if (!string.IsNullOrEmpty(existing))
+            {
+                AddMessage($"Folder already exists: {existing}");
+                continue;
+            }
+            try
+            {
+                var folder = Path.Combine(_mediator.TargetFolder, userName);
+                Directory.CreateDirectory(folder);
+                AddMessage($"Created folder: {folder}");
+            }
+            catch (Exception ex)
+            {
+                AddMessage($"Failed to create folder for {userName}: {ex.Message}");
+            }
+        }
+    }
+
     private static string? GetSubFolderByRating(bool r3, bool r4, bool r45, bool r5, bool r6)
     {
         if (r3) return "!3"; if (r4) return "!4"; if (r45) return "!4.5"; if (r5) return "!5"; if (r6) return "!6";
@@ -233,7 +322,6 @@ public partial class DownloadTabControl : UserControl
 
         var p = new DownloadParameters(_mediator.TargetFolder, "", userNames, nsfwLevels, mediaType, chbAlwaysDownloadLatest.Checked, GetLimit())
         {
-            DownloadedUserMeta = _downloadedUserMeta,
             DownloadInfoOnly = infoOnly
         };
         return p;
@@ -310,7 +398,7 @@ public partial class DownloadTabControl : UserControl
         return lines;
     }
 
-    private static int CountDigits(int n) => (int)Math.Floor(Math.Log10(n) + 1);
+    private static int CountDigits(int n) => n <= 0 ? 1 : (int)Math.Floor(Math.Log10(n) + 1);
 
     private void listBoxMessages_DoubleClick(object? sender, EventArgs e)
     {

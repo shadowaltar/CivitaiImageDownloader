@@ -12,6 +12,7 @@ public partial class HistoryTabControl : UserControl
     {
         _mediator = mediator;
         InitializeComponent();
+        ListBoxCopyHelper.EnableCopy(listBoxActionHistory);
 
         dgvUserHistory.CellFormatting += (s, e) =>
         {

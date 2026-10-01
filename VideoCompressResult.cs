@@ -7,4 +7,5 @@ internal enum VideoCompressResult
     SkippedFileSizeTooSmall,
     SkippedDimensionTooSmall,
     SkippedWrongFormat,
+    SkippedBitrateLow,
 }

@@ -9,6 +9,12 @@ partial class ViewerTabControl
         if (disposing && (components != null))
             components.Dispose();
         base.Dispose(disposing);
+        if (disposing)
+        {
+            // dispose LibVLC after the child VideoViews/players have been disposed
+            _libVLC?.Dispose();
+            _libVLC = null;
+        }
     }
 
     private void InitializeComponent()

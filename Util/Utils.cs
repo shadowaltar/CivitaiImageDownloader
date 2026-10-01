@@ -58,6 +58,10 @@ public static class Utils
             catch { }
         }
 
+        // do not touch existing files if nothing could be parsed
+        if (allItems.Count == 0)
+            return;
+
         // delete all old json files
         jsonFiles = Directory.GetFiles(folder, "*.json").Where(IsInfoFile).ToList();
         foreach (var file in jsonFiles)
@@ -65,9 +69,6 @@ public static class Utils
             try { File.Delete(file); }
             catch { }
         }
-
-        if (allItems.Count == 0)
-            return;
 
         var timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
         var newFilePath = Path.Combine(folder, $"{timestamp}.json");

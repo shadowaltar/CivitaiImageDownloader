@@ -12,6 +12,9 @@ namespace CivitaiImageDownloader;
 /// </summary>
 public class AnimatedImageToMp4Converter
 {
+    // Prefix marking a (coalescable) skip message; the UI replaces the previous skip line instead of appending.
+    public const string SkipMessageMarker = "\u0001";
+
     private static readonly string[] Extensions = [".webp", ".gif"];
 
     private readonly string _folder;
@@ -37,50 +40,58 @@ public class AnimatedImageToMp4Converter
             .ToArray();
 
         RaiseMessage?.Invoke($"Found {files.Length} webp/gif file(s) under {_folder} (including subfolders).");
+        int total = files.Length;
         int converted = 0, failed = 0, skipped = 0;
-        for (int i = 0; i < files.Length; i++)
+
+        await Task.Run(() =>
         {
-            var file = files[i];
-            var prefix = $"[{i + 1}/{files.Length}] ";
-            if (!IsAnimated(file))
-            {
-                skipped++;
-                RaiseMessage?.Invoke(prefix + $"Skipped static image: {Path.GetFileName(file)}");
-                continue;
-            }
-
-            var outPath = Path.ChangeExtension(file, ".mp4");
-            if (File.Exists(outPath))
-            {
-                skipped++;
-                RaiseMessage?.Invoke(prefix + $"Skipped, mp4 already exists: {Path.GetFileName(outPath)}");
-                continue;
-            }
-
-            try
-            {
-                RaiseMessage?.Invoke(prefix + $"Converting {Path.GetFileName(file)} @ {_targetFps}fps ...");
-                await Task.Run(() => ConvertFile(file, outPath));
-
-                bool originalDeleted = true;
-                try { File.Delete(file); }
-                catch (Exception de)
+            Parallel.For(0, total,
+                new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+                i =>
                 {
-                    originalDeleted = false;
-                    RaiseMessage?.Invoke(prefix + $"Warning: converted but failed to delete original {Path.GetFileName(file)}: {de.Message}");
-                }
-                converted++;
-                RaiseMessage?.Invoke(prefix + (originalDeleted
-                    ? $"Done: {Path.GetFileName(outPath)} (original deleted)"
-                    : $"Done: {Path.GetFileName(outPath)} (original kept)"));
-            }
-            catch (Exception e)
-            {
-                failed++;
-                RaiseMessage?.Invoke(prefix + $"Failed {Path.GetFileName(file)}: {e.Message}");
-                try { if (File.Exists(outPath)) File.Delete(outPath); } catch { }
-            }
-        }
+                    var file = files[i];
+                    var prefix = $"[{i + 1}/{total}] ";
+                    if (!IsAnimated(file))
+                    {
+                        Interlocked.Increment(ref skipped);
+                        RaiseMessage?.Invoke(SkipMessageMarker + $"{Path.GetFileName(file)} (static)");
+                        return;
+                    }
+
+                    var outPath = Path.ChangeExtension(file, ".mp4");
+                    if (File.Exists(outPath))
+                    {
+                        Interlocked.Increment(ref skipped);
+                        RaiseMessage?.Invoke(SkipMessageMarker + $"{Path.GetFileName(outPath)} (mp4 exists)");
+                        return;
+                    }
+
+                    try
+                    {
+                        RaiseMessage?.Invoke(prefix + $"Converting {Path.GetFileName(file)} @ {_targetFps}fps ...");
+                        ConvertFile(file, outPath);
+
+                        bool originalDeleted = true;
+                        try { File.Delete(file); }
+                        catch (Exception de)
+                        {
+                            originalDeleted = false;
+                            RaiseMessage?.Invoke(prefix + $"Warning: converted but failed to delete original {Path.GetFileName(file)}: {de.Message}");
+                        }
+                        Interlocked.Increment(ref converted);
+                        RaiseMessage?.Invoke(prefix + (originalDeleted
+                            ? $"Done: {Path.GetFileName(outPath)} (original deleted)"
+                            : $"Done: {Path.GetFileName(outPath)} (original kept)"));
+                    }
+                    catch (Exception e)
+                    {
+                        Interlocked.Increment(ref failed);
+                        RaiseMessage?.Invoke(prefix + $"Failed {Path.GetFileName(file)}: {e.Message}");
+                        try { if (File.Exists(outPath)) File.Delete(outPath); } catch { }
+                    }
+                });
+        });
+
         RaiseMessage?.Invoke($"Webp/Gif to MP4 finished. Converted/Failed/Skipped: {converted}/{failed}/{skipped}");
     }
 

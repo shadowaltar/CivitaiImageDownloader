@@ -10,7 +10,5 @@ public record DownloadParameters(string TargetFolder,
                                  bool SkipLatestIndexFetch,
                                  int Limit = 500)
 {
-    internal List<UserMeta> DownloadedUserMeta { get; set; }
-
     public bool DownloadInfoOnly { get; set; }
 }

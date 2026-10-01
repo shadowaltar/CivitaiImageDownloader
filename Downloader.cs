@@ -86,7 +86,11 @@ public class Downloader : IDisposable
         return result;
     }
 
-    public async Task<List<ExistenceResult>> MarkNonExistFiles()
+    /// <param name="markAllMissing">
+    /// When true, every file currently in the index that is not present on disk is added to the
+    /// ignore record ("freeze" the current state) instead of only files that were downloaded and later deleted.
+    /// </param>
+    public async Task<List<ExistenceResult>> MarkNonExistFiles(bool markAllMissing = false)
     {
         var allMetas = new List<MediaMeta>();
         var folder = FolderHelper.GetFolder(_rootFolder, _userName);
@@ -111,8 +115,17 @@ public class Downloader : IDisposable
 
         LoopHelper.Loop(ParallelMode, allMetas, MarkMeta);
 
-        var resultString = JsonSerializer.Serialize(results.Where(r => !r.IsExists && r.WasDownloaded).ToArray(), new JsonSerializerOptions { WriteIndented = true });
+        var resultString = JsonSerializer.Serialize(results.Where(r => !r.IsExists && (markAllMissing || r.WasDownloaded)).ToArray(), new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(Path.Combine(folder, SkipRecordFileName), resultString);
+
+        if (markAllMissing)
+        {
+            // Pretend the frozen (not-downloaded) files were downloaded. A later
+            // "Mark Deleted Files No Redownload" only keeps files with WasDownloaded=true,
+            // so this makes the frozen state survive that operation.
+            UpdateDownloadedRecord(folder, results.Where(r => !r.IsExists).Select(r => r.FilePath));
+        }
+
         return results;
 
         bool MarkMeta(MediaMeta meta)
@@ -123,7 +136,7 @@ public class Downloader : IDisposable
             var fileName = url.Split('/').Last();
             var path = meta.GetExpectedFilePath(folder);
             var isExists = File.Exists(path) || File.Exists(path.GetAlternativeJpegPath());
-            var wasDownloaded = downloadedRecord.Any(f => f.Contains(meta.ExpectedFileName) || f.Contains(meta.ExpectedFileName.GetAlternativeJpegPath()));
+            var wasDownloaded = downloadedRecord.Any(f => MatchesMediaFileName(f, meta.ExpectedFileName));
             var existence = new ExistenceResult(url, meta.ExpectedFileName, path, isExists, wasDownloaded);
             lock (results)
             {
@@ -141,7 +154,7 @@ public class Downloader : IDisposable
             var fi = new FileInfo(file);
             try
             {
-                fi.MoveTo(fi.FullName.Replace(".txt", ".json"));
+                fi.MoveTo(Path.ChangeExtension(fi.FullName, ".json"));
             }
             catch (Exception ex)
             {
@@ -235,7 +248,10 @@ public class Downloader : IDisposable
                 var nextPage = responseObj["metadata"]?["nextPage"]?.ToString()?.Replace("\u0026", "&");
                 RaiseMessage?.Invoke($"Page {pageCount}: {newInPage} new, {skippedInPage} already in index");
 
-                if (skippedInPage > 0)
+                // Normally stop once we reach items already in the local index (the list is newest-first,
+                // so everything after is older/known). In info-only mode we keep paging to backfill the
+                // full history while still applying the NSFW filter.
+                if (skippedInPage > 0 && !_downloadInfoOnly)
                 {
                     RaiseMessage?.Invoke($"Hit known items on page {pageCount}, stopping further page fetch.");
                     break;
@@ -313,7 +329,7 @@ public class Downloader : IDisposable
                 return;
 
             var (mediaMetas, skippedCount, jObj, thisInfoUrl, nextInfoUrl) = infoParseResult;
-            _skippedCount += skippedCount;
+            Interlocked.Add(ref _skippedCount, skippedCount);
             RaiseMessage?.Invoke($"Parsed local: {file}, got {mediaMetas.Count} image urls, next? {nextInfoUrl != null}");
             foreach (var mediaMeta in mediaMetas)
                 bag.Add(mediaMeta);
@@ -338,7 +354,7 @@ public class Downloader : IDisposable
             RaiseMessage?.Invoke($"[{fileNamesToSkip.Count}] was marked as IGNORE; actual downloading count: [{toDownloadMetas.Count}]");
             allMetas = toDownloadMetas;
         }
-        toDownloadMetas = allMetas.Where(meta => !fileNamesExist.Any(f => f.Contains(meta.ExpectedFileName))).ToList();
+        toDownloadMetas = allMetas.Where(meta => !fileNamesExist.Any(f => MatchesMediaFileName(f, meta.ExpectedFileName))).ToList();
         if (toDownloadMetas.Count != allMetas.Count)
         {
             RaiseMessage?.Invoke($"[{fileNamesExist.Count}] was already downloaded; actual downloading count: [{toDownloadMetas.Count}]");
@@ -541,6 +557,15 @@ public class Downloader : IDisposable
             .ToList();
     }
 
+    // Compares a full path against an expected media file name (exact match, ignoring case),
+    // also accepting the alternative .jpg/.jpeg extension.
+    private static bool MatchesMediaFileName(string path, string expectedFileName)
+    {
+        var name = Path.GetFileName(path);
+        return name.Equals(expectedFileName, StringComparison.OrdinalIgnoreCase)
+            || name.Equals(expectedFileName.GetAlternativeJpegPath(), StringComparison.OrdinalIgnoreCase);
+    }
+
     private List<string> LoadDownloadedRecord(string folder)
     {
         var path = Path.Combine(folder, DownloadedRecordFileName);
@@ -557,12 +582,16 @@ public class Downloader : IDisposable
         }
     }
 
-    private void UpdateDownloadedRecord(string folder)
+    private void UpdateDownloadedRecord(string folder, IEnumerable<string>? extraPaths = null)
     {
         try
         {
             var existing = LoadDownloadedRecord(folder);
-            var merged = existing.Concat(GetFileNamesAlreadyExist(folder)).Distinct().ToList();
+            var merged = existing
+                .Concat(GetFileNamesAlreadyExist(folder))
+                .Concat(extraPaths ?? [])
+                .Distinct()
+                .ToList();
             File.WriteAllText(Path.Combine(folder, DownloadedRecordFileName), JsonSerializer.Serialize(merged, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch

@@ -349,19 +349,25 @@ public partial class ViewerTabControl : UserControl
 
     private static Image? LoadVideoThumbnail(string filePath)
     {
+        var tmpFile = Path.GetTempFileName() + ".jpg";
         try
         {
-            var tmpFile = Path.GetTempFileName() + ".jpg";
             var ffmpeg = new FFMpegConverter();
             ffmpeg.GetVideoThumbnail(filePath, tmpFile, 0);
             if (File.Exists(tmpFile))
             {
-                var img = Image.FromFile(tmpFile);
-                try { File.Delete(tmpFile); } catch { }
-                return img;
+                // load into memory and clone so the temp file can be deleted (Image.FromFile locks it)
+                var bytes = File.ReadAllBytes(tmpFile);
+                using var ms = new MemoryStream(bytes);
+                using var img = Image.FromStream(ms);
+                return new Bitmap(img);
             }
         }
         catch { }
+        finally
+        {
+            try { if (File.Exists(tmpFile)) File.Delete(tmpFile); } catch { }
+        }
         return null;
     }
 

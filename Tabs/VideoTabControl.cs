@@ -15,6 +15,7 @@ public partial class VideoTabControl : UserControl
     {
         _mediator = mediator;
         InitializeComponent();
+        ListBoxCopyHelper.EnableCopy(listBoxVideoProcessingMessages);
         _mediator.UsernamesCopiedToVideo += usernames =>
         {
             txtVideoProcessingUsers.Text = usernames;
@@ -40,7 +41,12 @@ public partial class VideoTabControl : UserControl
 
     private async void btnWebpToMp4_Click(object sender, EventArgs e)
     {
-        Invoke(listBoxVideoProcessingMessages.Items.Clear);
+        Invoke(() =>
+        {
+            listBoxVideoProcessingMessages.Items.Clear();
+            _lastMessageWasSkip = false;
+            _skippedSoFar = 0;
+        });
 
         // A selected folder is used verbatim (so paths containing commas work);
         // otherwise fall back to parsing usernames.
@@ -163,12 +169,31 @@ public partial class VideoTabControl : UserControl
         }
     }
 
+    private bool _lastMessageWasSkip;
+    private int _skippedSoFar;
+
     private void AddVideoProcessingMessage(string message)
     {
         Invoke(() =>
         {
+            var isSkip = message.StartsWith(AnimatedImageToMp4Converter.SkipMessageMarker, StringComparison.Ordinal);
+            if (isSkip)
+            {
+                _skippedSoFar++;
+                message = $"Skipped {_skippedSoFar} file(s): " + message[AnimatedImageToMp4Converter.SkipMessageMarker.Length..];
+            }
+
             listBoxVideoProcessingMessages.BeginUpdate();
-            listBoxVideoProcessingMessages.Items.Add(message);
+            if (isSkip && _lastMessageWasSkip && listBoxVideoProcessingMessages.Items.Count > 0)
+            {
+                // consecutive skips coalesce into a single updating line
+                listBoxVideoProcessingMessages.Items[listBoxVideoProcessingMessages.Items.Count - 1] = message;
+            }
+            else
+            {
+                listBoxVideoProcessingMessages.Items.Add(message);
+            }
+            _lastMessageWasSkip = isSkip;
             listBoxVideoProcessingMessages.TopIndex = listBoxVideoProcessingMessages.Items.Count - 1;
             listBoxVideoProcessingMessages.EndUpdate();
         });
@@ -184,6 +209,7 @@ public partial class VideoTabControl : UserControl
                 var lastIdx = listBoxVideoProcessingMessages.Items.Count - 1;
                 if (lastIdx >= 0)
                     listBoxVideoProcessingMessages.Items[lastIdx] = listBoxVideoProcessingMessages.Items[lastIdx] + message;
+                _lastMessageWasSkip = false;
             }
             catch { }
             finally { listBoxVideoProcessingMessages.EndUpdate(); }
@@ -264,6 +290,7 @@ public partial class VideoTabControl : UserControl
                             var tmpFile = item.file + ".enhanced.mp4";
                             try
                             {
+                                var sizeBefore = new FileInfo(item.file).Length;
                                 Invoke(() => AddVideoProcessingMessage($"  [{n}/{total}] Enhancing {item.fileName}: {item.fps:F1}fps → {targetFps}fps..."));
                                 var ffmpeg = new FFMpegConverter();
                                 ffmpeg.ConvertMedia(item.file, null, tmpFile, null,
@@ -275,7 +302,9 @@ public partial class VideoTabControl : UserControl
 
                                 File.Delete(item.file);
                                 File.Move(tmpFile, item.file);
-                                Invoke(() => AddVideoProcessingMessage($"  [{n}/{total}] Done {item.fileName}"));
+                                var sizeAfter = new FileInfo(item.file).Length;
+                                Invoke(() => AddVideoProcessingMessage(
+                                    $"  [{n}/{total}] Done {item.fileName}: {sizeBefore / 1024.0 / 1024.0:F2} MB -> {sizeAfter / 1024.0 / 1024.0:F2} MB"));
                             }
                             catch (Exception ex)
                             {

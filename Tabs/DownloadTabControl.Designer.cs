@@ -43,6 +43,8 @@ partial class DownloadTabControl
         txtUsernames = new TextBox();
         btnShowFirstUserInViewer = new Button();
         btnDownloadInfoOnly = new Button();
+        btnCreateFolder = new Button();
+        btnFreezeCurrentFiles = new Button();
         lblLimit = new Label();
         txtLimit = new TextBox();
         btnClearUsernames = new Button();
@@ -347,6 +349,26 @@ partial class DownloadTabControl
         btnDownloadInfoOnly.UseVisualStyleBackColor = true;
         btnDownloadInfoOnly.Click += btnDownloadInfoOnly_Click;
         // 
+        // btnCreateFolder
+        // 
+        btnCreateFolder.Location = new Point(528, 112);
+        btnCreateFolder.Name = "btnCreateFolder";
+        btnCreateFolder.Size = new Size(132, 64);
+        btnCreateFolder.TabIndex = 33;
+        btnCreateFolder.Text = "Create Folder";
+        btnCreateFolder.UseVisualStyleBackColor = true;
+        btnCreateFolder.Click += btnCreateFolder_Click;
+        // 
+        // btnFreezeCurrentFiles
+        // 
+        btnFreezeCurrentFiles.Location = new Point(1714, 112);
+        btnFreezeCurrentFiles.Name = "btnFreezeCurrentFiles";
+        btnFreezeCurrentFiles.Size = new Size(200, 64);
+        btnFreezeCurrentFiles.TabIndex = 34;
+        btnFreezeCurrentFiles.Text = "Freeze Current Files";
+        btnFreezeCurrentFiles.UseVisualStyleBackColor = true;
+        btnFreezeCurrentFiles.Click += btnFreezeCurrentFiles_Click;
+        // 
         // lblLimit
         // 
         lblLimit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -370,6 +392,8 @@ partial class DownloadTabControl
         // 
         Controls.Add(btnShowFirstUserInViewer);
         Controls.Add(btnDownloadInfoOnly);
+        Controls.Add(btnCreateFolder);
+        Controls.Add(btnFreezeCurrentFiles);
         Controls.Add(btnCompressInfo);
         Controls.Add(btnSetUserNameTextByRating);
         Controls.Add(btnMoveUsersToRating);
@@ -437,6 +461,8 @@ partial class DownloadTabControl
     internal TextBox txtUsernames;
     private Button btnShowFirstUserInViewer;
     private Button btnDownloadInfoOnly;
+    private Button btnCreateFolder;
+    private Button btnFreezeCurrentFiles;
     private Label lblLimit;
     private TextBox txtLimit;
     private Button btnClearUsernames;

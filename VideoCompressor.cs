@@ -15,9 +15,18 @@ public class VideoCompressor : IDisposable
 
     public string UserName => mode == VideoProcessInputMode.UserName ? name : "";
 
-    public int CompressionSizeBytesThreshold { get; set; } = 3 * 1024 * 1024; // 3MB
-    public int CompressionFrameSizeDimensionThreshold { get; set; } = 1000;
+    // Skip tiny/very short files outright.
+    public long CompressionMinBytes { get; set; } = 300 * 1024; // 300 KB
+    public double CompressionMinDurationSeconds { get; set; } = 1.0;
+
+    // Downscale factor; the shorter output side is never allowed below CompressionMinDimension.
     public double CompressionFrameSizeRatio { get; set; } = .75;
+    public int CompressionMinDimension { get; set; } = 640;
+
+    // Bits-per-pixel-per-frame the target CRF ~23 H.264 encode is expected to need,
+    // and the margin above it before re-encoding is worthwhile.
+    public double CompressionBppTarget { get; set; } = 0.08;
+    public double CompressionBppMargin { get; set; } = 1.25;
 
     public VideoCompressor(string targetFolder, string name, VideoProcessInputMode mode)
     {
@@ -27,8 +36,6 @@ public class VideoCompressor : IDisposable
     }
 
     public bool ShouldStop { get; internal set; }
-
-    public bool EnableMotionInterpolation { get; set; }
 
     public Action<string> RaiseAddMessage { get; internal set; }
 
@@ -123,7 +130,7 @@ public class VideoCompressor : IDisposable
             }
 
             var fi = new FileInfo(path);
-            if (fi.Length < CompressionSizeBytesThreshold)
+            if (fi.Length < CompressionMinBytes)
             {
                 // skip small files
                 return VideoCompressResult.SkippedFileSizeTooSmall;
@@ -142,7 +149,7 @@ public class VideoCompressor : IDisposable
                     RaiseAppendMessage?.Invoke($" Result: {oldMb:.00}MB -> {newMb:.00}MB; {old.Width}x{old.Height} -> {@new.Width}x{@new.Height}");
 
                     File.Delete(path);
-                    File.Move(compressedFile, compressedFile.Replace("compressing_", ""));
+                    File.Move(compressedFile, path);
                 }
                 else
                     RaiseAppendMessage?.Invoke($" Skipped: {result}");
@@ -169,78 +176,75 @@ public class VideoCompressor : IDisposable
 
     private (VideoCompressResult result, Rect oldDimension, Rect newDimension) Convert(FFMpegConverter ffmpeg, string path, string? compressedFile)
     {
-        bool isGood = false;
-        int videoWidth = 0;
-        int videoHeight = 0;
-        float frameRate = 0;
-        int newVideoWidth = 0;
-        int newVideoHeight = 0;
         const float newFrameRate = 30;
         const float qualityRate = 23;
         MediaInfo videoInfo = _ffProbe.GetMediaInfo(path);
-        //bool isYuv420 = false;
-        if (videoInfo.Streams != null && videoInfo.Streams.Length > 0)
-        {
-            var videoStream = videoInfo.Streams[0]; // Assuming the first stream is the video stream
-            videoWidth = videoStream.Width;
-            videoHeight = videoStream.Height;
-            frameRate = videoStream.FrameRate;
-            //if (videoStream.PixelFormat == "yuv420p") // raw data
-            //{
-            //    isYuv420 = true;
-            //}
-        }
-        else
-        {
-            return default;
-        }
-        // must enforce H.264 dimensions to even numbers
-        newVideoWidth = toEven(videoWidth * CompressionFrameSizeRatio);
-        newVideoHeight = toEven(videoHeight * CompressionFrameSizeRatio);
 
-        var oldDimension = new Rect(videoWidth, videoHeight);
-        if (new FileInfo(path).Length / 1024.0 / 1024.0 < 1)
+        // Pick the actual video stream (Streams[0] may be audio/other and report -1x-1).
+        var videoStream = videoInfo.Streams?.FirstOrDefault(s => s.CodecType?.ToLower() == "video");
+        if (videoStream == null || videoStream.Width <= 0 || videoStream.Height <= 0)
         {
-            return (VideoCompressResult.SkippedFileSizeTooSmall, oldDimension, oldDimension);
+            return (VideoCompressResult.SkippedWrongFormat, new Rect(0, 0), new Rect(0, 0));
         }
-        if (videoWidth == 640 || videoHeight == 640)
+        int videoWidth = videoStream.Width;
+        int videoHeight = videoStream.Height;
+        float frameRate = videoStream.FrameRate;
+        var oldDimension = new Rect(videoWidth, videoHeight);
+
+        double durationSec = videoInfo.Duration.TotalSeconds;
+        if (durationSec < CompressionMinDurationSeconds)
+        {
+            return (VideoCompressResult.SkippedBitrateLow, oldDimension, oldDimension);
+        }
+
+        // Dimension lower bound: don't compress videos whose shorter side is already below the minimum.
+        if (Math.Min(videoWidth, videoHeight) < CompressionMinDimension)
         {
             return (VideoCompressResult.SkippedDimensionTooSmall, oldDimension, oldDimension);
         }
-        if (newVideoWidth <= 640 || newVideoHeight <= 640)
+
+        // Output geometry: scale down by the ratio (H.264 needs even dimensions), but never let the
+        // shorter side fall below CompressionMinDimension. Because the source is already >= the
+        // minimum here, flooring it never upscales.
+        double ratio = videoWidth / (double)videoHeight;
+        int newVideoWidth = toEven(videoWidth * CompressionFrameSizeRatio);
+        int newVideoHeight = toEven(videoHeight * CompressionFrameSizeRatio);
+        if (videoWidth >= videoHeight)
         {
-            var ratio = videoWidth / (double)videoHeight;
-            if (newVideoWidth <= 640)
+            if (newVideoHeight < CompressionMinDimension)
             {
-                newVideoWidth = 640;
-                newVideoHeight = toEven(newVideoWidth / ratio);
-            }
-            else
-            {
-                newVideoHeight = 640;
+                newVideoHeight = CompressionMinDimension;
                 newVideoWidth = toEven(newVideoHeight * ratio);
             }
         }
-        var settings = new ConvertSettings();
-        //if (isYuv420)
-        //{
-        //    settings.CustomInputArgs = "-f h264";
-        //    settings.CustomOutputArgs = $"-c:v libx264 -preset fast -crf {qualityRate} -s {newVideoWidth}x{newVideoHeight} -r 30 -pix_fmt yuv420p";
+        else
+        {
+            if (newVideoWidth < CompressionMinDimension)
+            {
+                newVideoWidth = CompressionMinDimension;
+                newVideoHeight = toEven(newVideoWidth / ratio);
+            }
+        }
 
-        //    //settings.CustomInputArgs = $"-f rawvideo -pixel_format yuv420p -video_size {videoWidth}x{videoHeight} -framerate {frameRate}";
-        //    //settings.CustomOutputArgs = $"-c:v libx264 -preset fast -crf {qualityRate} -s {newVideoWidth}x{newVideoHeight} -r {newFrameRate} -pix_fmt yuv420p";
-        //}
-        //else
+        // Decide whether re-encoding is worthwhile: compare the current bitrate against the
+        // bitrate the target encode is expected to need (bits-per-pixel-per-frame heuristic).
+        int outFps = (int)Math.Round(frameRate > 0 ? Math.Min(frameRate, newFrameRate) : newFrameRate);
+        if (outFps <= 0) outFps = (int)newFrameRate;
+        double currentBps = new FileInfo(path).Length * 8.0 / durationSec;
+        double targetBps = CompressionBppTarget * newVideoWidth * newVideoHeight * outFps;
+        if (currentBps <= targetBps * CompressionBppMargin)
+        {
+            return (VideoCompressResult.SkippedBitrateLow, oldDimension, new Rect(newVideoWidth, newVideoHeight));
+        }
 
-        settings.VideoCodec = "libx264";
-        var fpsFilter = EnableMotionInterpolation
-            ? $"-vf minterpolate=fps={newFrameRate}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
-            : $"-r {newFrameRate}";
-        settings.CustomOutputArgs = $"-preset fast -crf {qualityRate} {fpsFilter}";
-        settings.VideoFrameSize = $"{newVideoWidth}x{newVideoHeight}";
+        var settings = new ConvertSettings
+        {
+            VideoCodec = "libx264",
+            CustomOutputArgs = $"-preset fast -crf {qualityRate} -r {newFrameRate}",
+            VideoFrameSize = $"{newVideoWidth}x{newVideoHeight}"
+        };
 
         ffmpeg.ConvertMedia(path, null, compressedFile, null, settings);
-        isGood = true;
         return (VideoCompressResult.Good, oldDimension, new Rect(newVideoWidth, newVideoHeight));
     }
 

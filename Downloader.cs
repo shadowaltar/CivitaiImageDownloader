@@ -32,6 +32,12 @@ public class Downloader : IDisposable
     public event Action<string>? RaiseMessage;
     public event Action<int>? UpdateDownloadingCounter;
 
+    /// <summary>Raised once per run with the number of discovered media items.</summary>
+    public event Action<int>? ProgressStarted;
+
+    /// <summary>Raised when an item's progress state changes (item index, state).</summary>
+    public event Action<int, ProgressItemState>? ProgressChanged;
+
     private readonly List<string> _failedUrls = [];
     private int _skippedCount = 0;
     private int _downloadingCount = 0;
@@ -342,19 +348,38 @@ public class Downloader : IDisposable
         var fileNamesExist = GetFileNamesAlreadyExist(folder);
         UpdateDownloadedRecord(folder);
         var existingCount = fileNamesExist.Count;
+
+        // progress: one dot per discovered media item, in download order (newest first)
+        var orderedAll = allMetas.OrderByDescending(m => m.Id).ToList();
+        var indexOf = new Dictionary<MediaMeta, int>(ReferenceEqualityComparer.Instance);
+        for (int i = 0; i < orderedAll.Count; i++)
+            indexOf[orderedAll[i]] = i;
+        var fileNamesToSkip = GetFileNamesToSkip(folder);
+        var skipSet = new HashSet<string>(fileNamesToSkip, StringComparer.OrdinalIgnoreCase);
+        var existingNameSet = new HashSet<string>(fileNamesExist.Select(f => Path.GetFileName(f)!), StringComparer.OrdinalIgnoreCase);
+        ProgressStarted?.Invoke(orderedAll.Count);
+        foreach (var m in orderedAll)
+        {
+            if (skipSet.Contains(m.ExpectedFileName)
+                || existingNameSet.Contains(m.ExpectedFileName)
+                || existingNameSet.Contains(m.ExpectedFileName.GetAlternativeJpegPath()))
+                ProgressChanged?.Invoke(indexOf[m], ProgressItemState.Already);
+        }
+
         if (existingCount >= _limit)
         {
             RaiseMessage?.Invoke($"[LIMIT] Existing file count [{existingCount}] already reached/exceeded the limit [{_limit}], stopping.");
             return new DownloadResult(_userName, _skippedCount, 0, 0, _failedUrls);
         }
-        var fileNamesToSkip = GetFileNamesToSkip(folder);
-        var toDownloadMetas = allMetas.Where(meta => !fileNamesToSkip.Contains(meta.ExpectedFileName)).ToList();
+
+        var toDownloadMetas = allMetas.Where(meta => !skipSet.Contains(meta.ExpectedFileName)).ToList();
         if (toDownloadMetas.Count != allMetas.Count)
         {
             RaiseMessage?.Invoke($"[{fileNamesToSkip.Count}] was marked as IGNORE; actual downloading count: [{toDownloadMetas.Count}]");
             allMetas = toDownloadMetas;
         }
-        toDownloadMetas = allMetas.Where(meta => !fileNamesExist.Any(f => MatchesMediaFileName(f, meta.ExpectedFileName))).ToList();
+        toDownloadMetas = allMetas.Where(meta => !existingNameSet.Contains(meta.ExpectedFileName)
+                                                 && !existingNameSet.Contains(meta.ExpectedFileName.GetAlternativeJpegPath())).ToList();
         if (toDownloadMetas.Count != allMetas.Count)
         {
             RaiseMessage?.Invoke($"[{fileNamesExist.Count}] was already downloaded; actual downloading count: [{toDownloadMetas.Count}]");
@@ -386,7 +411,10 @@ public class Downloader : IDisposable
             var url = meta.Url;
             var retriedCount = 0;
             var shallRetry = false;
+            var path = meta.GetExpectedFilePath(folder);
+            ProgressItemState? finalState = null;
 
+            ProgressChanged?.Invoke(indexOf[meta], ProgressItemState.Processing);
             UpdateDownloadingCounter?.Invoke(Interlocked.Increment(ref _downloadingCount));
             do
             {
@@ -395,23 +423,25 @@ public class Downloader : IDisposable
 
                 retriedCount++;
                 var fileName = url.Split('/').Last();
-                var path = meta.GetExpectedFilePath(folder);
                 try
                 {
                     if (File.Exists(path) || File.Exists(path.GetAlternativeJpegPath()))
                     {
                         meta.IsExists = true;
-                        continue;
+                        finalState = ProgressItemState.Already;
+                        break;
                     }
                     if (meta.IsImage && !_mediaType.HasFlag(MediaType.Image))
                     {
                         Interlocked.Increment(ref _skippedCount);
-                        continue;
+                        finalState = ProgressItemState.Skipped;
+                        break;
                     }
                     if (meta.IsVideo && !_mediaType.HasFlag(MediaType.Video))
                     {
                         Interlocked.Increment(ref _skippedCount);
-                        continue;
+                        finalState = ProgressItemState.Skipped;
+                        break;
                     }
 
                     Thread.Sleep(150);
@@ -464,6 +494,9 @@ public class Downloader : IDisposable
                 }
             }
             while (retriedCount < 1 && shallRetry);
+
+            var downloadedOk = File.Exists(path) || File.Exists(path.GetAlternativeJpegPath());
+            ProgressChanged?.Invoke(indexOf[meta], finalState ?? (downloadedOk ? ProgressItemState.Done : ProgressItemState.Skipped));
             return true;
         }
     }

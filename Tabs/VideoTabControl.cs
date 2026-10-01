@@ -44,6 +44,7 @@ public partial class VideoTabControl : UserControl
         Invoke(() =>
         {
             listBoxVideoProcessingMessages.Items.Clear();
+            progressBox.Clear();
             _lastMessageWasSkip = false;
             _skippedSoFar = 0;
         });
@@ -87,19 +88,26 @@ public partial class VideoTabControl : UserControl
                 {
                     RaiseMessage = AddVideoProcessingMessage
                 };
+                converter.ProgressStarted += total => Invoke(() => BeginProgress($"Progress: Webp/Gif \u2192 MP4 \u2013 {Path.GetFileName(folder)} \u2013 {total} item(s)", total));
+                converter.ProgressChanged += (idx, state) => progressBox.SetState(idx, state);
                 await converter.Run();
+                AddVideoProcessingMessage($"{Path.GetFileName(folder)} convert is done");
             }
         }
         finally
         {
-            AddVideoProcessingMessage("Webp to MP4 complete.");
+            AddVideoProcessingMessage("All done");
             btnWebpToMp4.Enabled = true;
         }
     }
 
     private async void btnCompressVideo_Click(object sender, EventArgs e)
     {
-        Invoke(listBoxVideoProcessingMessages.Items.Clear);
+        Invoke(() =>
+        {
+            listBoxVideoProcessingMessages.Items.Clear();
+            progressBox.Clear();
+        });
 
         _videoCompressor = null;
 
@@ -129,12 +137,15 @@ public partial class VideoTabControl : UserControl
             _videoCompressor = new VideoCompressor(_mediator.TargetFolder, name, mode);
             _videoCompressor.RaiseAddMessage += AddVideoProcessingMessage;
             _videoCompressor.RaiseAppendMessage += AppendVideoProcessingMessage;
+            _videoCompressor.ProgressStarted += total => Invoke(() => BeginProgress($"Progress: Compress \u2013 {name} \u2013 {total} item(s)", total));
+            _videoCompressor.ProgressChanged += (idx, state) => progressBox.SetState(idx, state);
             await _videoCompressor.Run();
             _videoCompressor.RaiseAddMessage -= AddVideoProcessingMessage;
             _videoCompressor.RaiseAppendMessage -= AppendVideoProcessingMessage;
             _videoCompressor.Dispose();
+            AddVideoProcessingMessage($"{name} compress is done");
         }
-        AddVideoProcessingMessage("ALL DONE!");
+        AddVideoProcessingMessage("All done");
 
         _mediator.RecordVideoHistory(txtVideoProcessingUsers.Text.Trim());
     }
@@ -171,6 +182,26 @@ public partial class VideoTabControl : UserControl
 
     private bool _lastMessageWasSkip;
     private int _skippedSoFar;
+
+    private void BeginProgress(string header, int count)
+    {
+        progressBox.BeginRun(header, count);
+        AutoSizeProgressPanel();
+    }
+
+    private void AutoSizeProgressPanel()
+    {
+        try
+        {
+            int usable = Math.Max(0, messageSplitContainer.Height - messageSplitContainer.SplitterWidth);
+            int maxTop = usable / 2;                        // progress never exceeds half the shared height
+            int distance = Math.Min(progressBox.PreferredHeight, maxTop);
+            messageSplitContainer.SplitterDistance = Math.Max(0, Math.Min(distance, usable));
+        }
+        catch
+        {
+        }
+    }
 
     private void AddVideoProcessingMessage(string message)
     {
@@ -237,6 +268,7 @@ public partial class VideoTabControl : UserControl
             return;
         }
 
+        Invoke(() => progressBox.Clear());
         btnEnhanceFrameRate.Enabled = false;
         try
         {
@@ -259,26 +291,45 @@ public partial class VideoTabControl : UserControl
 
                     Invoke(() => AddVideoProcessingMessage($"Found {videoFiles.Length} videos for {name}"));
 
-                    // collect files needing enhancement
-                    var toEnhance = new List<(string file, string fileName, double fps)>();
-                    foreach (var file in videoFiles)
-                    {
-                        try
+                    var fileIndex = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    for (int k = 0; k < videoFiles.Length; k++)
+                        fileIndex[videoFiles[k]] = k;
+                    Invoke(() => BeginProgress($"Progress: Enhance \u2013 {name} \u2013 {videoFiles.Length} item(s)", videoFiles.Length));
+
+                    // collect files needing enhancement (scan in parallel and report progress so the UI stays live)
+                    var toEnhance = new System.Collections.Concurrent.ConcurrentBag<(string file, string fileName, double fps)>();
+                    int scannedCount = 0;
+                    Invoke(() => AddVideoProcessingMessage($"Scanning {videoFiles.Length} videos for {name}..."));
+                    Parallel.ForEach(videoFiles,
+                        new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Math.Min(Environment.ProcessorCount, 4)) },
+                        file =>
                         {
-                            var probe = new FFProbe();
-                            var info = probe.GetMediaInfo(file);
-                            var stream = info.Streams.FirstOrDefault(s => s.CodecType?.ToLower() == "video");
-                            if (stream == null) continue;
-                            // Use the effective (unique) frame rate so videos that only look high-fps
-                            // because of duplicated frames are still detected as needing enhancement.
-                            var effectiveFps = GetEffectiveFrameRate(file, info.Duration.TotalSeconds, stream.FrameRate);
-                            if (effectiveFps < minFps)
-                                toEnhance.Add((file, Path.GetFileName(file), effectiveFps));
-                        }
-                        catch { }
-                    }
+                            try
+                            {
+                                var probe = new FFProbe();
+                                var info = probe.GetMediaInfo(file);
+                                var stream = info.Streams.FirstOrDefault(s => s.CodecType?.ToLower() == "video");
+                                if (stream != null)
+                                {
+                                    // Use the effective (unique) frame rate so videos that only look high-fps
+                                    // because of duplicated frames are still detected as needing enhancement.
+                                    var effectiveFps = GetEffectiveFrameRate(file, info.Duration.TotalSeconds, stream.FrameRate);
+                                    if (effectiveFps < minFps)
+                                        toEnhance.Add((file, Path.GetFileName(file), effectiveFps));
+                                }
+                            }
+                            catch { }
+
+                            var k = Interlocked.Increment(ref scannedCount);
+                            Invoke(() => AddVideoProcessingMessage($"  scanning {k}/{videoFiles.Length}: {Path.GetFileName(file)}"));
+                        });
 
                     Invoke(() => AddVideoProcessingMessage($"  {toEnhance.Count} need enhancement (effective fps < {minFps})"));
+
+                    var enhanceSet = toEnhance.Select(t => t.file).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    for (int k = 0; k < videoFiles.Length; k++)
+                        if (!enhanceSet.Contains(videoFiles[k]))
+                            progressBox.SetState(k, ProgressItemState.Skipped);
 
                     var done = 0;
                     var total = toEnhance.Count;
@@ -288,6 +339,8 @@ public partial class VideoTabControl : UserControl
                         {
                             var n = Interlocked.Increment(ref done);
                             var tmpFile = item.file + ".enhanced.mp4";
+                            if (fileIndex.TryGetValue(item.file, out var idx))
+                                progressBox.SetState(idx, ProgressItemState.Processing);
                             try
                             {
                                 var sizeBefore = new FileInfo(item.file).Length;
@@ -303,15 +356,20 @@ public partial class VideoTabControl : UserControl
                                 File.Delete(item.file);
                                 File.Move(tmpFile, item.file);
                                 var sizeAfter = new FileInfo(item.file).Length;
+                                if (fileIndex.TryGetValue(item.file, out var doneIdx))
+                                    progressBox.SetState(doneIdx, ProgressItemState.Done);
                                 Invoke(() => AddVideoProcessingMessage(
                                     $"  [{n}/{total}] Done {item.fileName}: {sizeBefore / 1024.0 / 1024.0:F2} MB -> {sizeAfter / 1024.0 / 1024.0:F2} MB"));
                             }
                             catch (Exception ex)
                             {
                                 try { File.Delete(tmpFile); } catch { }
+                                if (fileIndex.TryGetValue(item.file, out var failIdx))
+                                    progressBox.SetState(failIdx, ProgressItemState.Skipped);
                                 Invoke(() => AddVideoProcessingMessage($"  [{n}/{total}] Failed {item.fileName}: {ex.Message}"));
                             }
                         });
+                    Invoke(() => AddVideoProcessingMessage($"{name} enhance is done"));
                 }
             });
         }
@@ -319,7 +377,7 @@ public partial class VideoTabControl : UserControl
         {
             Invoke(() =>
             {
-                AddVideoProcessingMessage("Enhance Frame Rate complete.");
+                AddVideoProcessingMessage("All done");
                 btnEnhanceFrameRate.Enabled = true;
             });
         }

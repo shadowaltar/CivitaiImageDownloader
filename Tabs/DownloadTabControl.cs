@@ -22,8 +22,6 @@ public partial class DownloadTabControl : UserControl
         btnShowFirstUserInViewer.Click += (s, e) => _mediator.RequestSwitchToViewerTab();
         btnClearUsernames.Click += (s, e) => txtUsernames.Clear();
         btnSetUserNameTextByRating.Click += btnSetUserNameTextByRating_Click;
-        btnCreateFolder.Click += btnCreateFolder_Click;
-        btnFreezeCurrentFiles.Click += btnFreezeCurrentFiles_Click;
 
         var ratingCheckBoxes = new[] { chb3Star, chb4Star, chb4p5Star, chb5Star, chb6Star };
         foreach (var cb in ratingCheckBoxes)
@@ -45,7 +43,11 @@ public partial class DownloadTabControl : UserControl
         _mediator.Stopping = false;
         _mediator.DownloadResults.Clear();
 
-        Invoke(listBoxMessages.Items.Clear);
+        Invoke(() =>
+        {
+            listBoxMessages.Items.Clear();
+            progressBox.Clear();
+        });
         UpdateDownloadingCounter(-1);
 
         var parameters = CreateDownloadParameters(infoOnly);
@@ -53,10 +55,26 @@ public partial class DownloadTabControl : UserControl
 
         _mediator.RecordDownloadHistory(txtUsernames.Text.Trim());
 
+        var runUsers = new List<string>();
+        foreach (var u in parameters.UserNames)
+        {
+            if (ManualMarker.Exists(FolderHelper.GetFolder(_mediator.TargetFolder, u)))
+            {
+                AddMessage($"Skipping manual user: {u}");
+                continue;
+            }
+            runUsers.Add(u);
+        }
+        if (runUsers.Count == 0)
+        {
+            AddMessage("All selected users are marked as manual; nothing to download.");
+            return;
+        }
+
         Downloader? dl = null;
         try
         {
-            foreach (var un in parameters.UserNames)
+            foreach (var un in runUsers)
             {
                 if (_mediator.Stopping && dl != null)
                 {
@@ -69,12 +87,23 @@ public partial class DownloadTabControl : UserControl
                 _activeDownloader = dl;
                 dl.RaiseMessage += AddMessage;
                 dl.UpdateDownloadingCounter += UpdateDownloadingCounter;
+                if (!infoOnly)
+                {
+                    var user = un;
+                    dl.ProgressStarted += total => Invoke(() =>
+                    {
+                        progressBox.BeginRun($"Progress: Download \u2013 {user} \u2013 {total} item(s)", total);
+                        AutoSizeProgressPanel();
+                    });
+                    dl.ProgressChanged += (idx, state) => progressBox.SetState(idx, state);
+                }
                 var result = await dl.Run();
                 _mediator.DownloadResults.Add(result);
                 dl.RaiseMessage -= AddMessage;
                 dl.UpdateDownloadingCounter -= UpdateDownloadingCounter;
                 dl.Dispose();
                 _activeDownloader = null;
+                AddMessage(infoOnly ? $"{un} info download is done" : $"{un} download is done");
             }
         }
         finally
@@ -87,6 +116,7 @@ public partial class DownloadTabControl : UserControl
         foreach (var r in Format(_mediator.DownloadResults))
             AddMessage(r);
         AddMessage("====SUMMARY====");
+        AddMessage("All done");
     }
 
     private void btnStop_Click(object sender, EventArgs e)
@@ -158,6 +188,11 @@ public partial class DownloadTabControl : UserControl
         var results = new Dictionary<string, List<ExistenceResult>>();
         foreach (var un in parameters.UserNames)
         {
+            if (ManualMarker.Exists(FolderHelper.GetFolder(_mediator.TargetFolder, un)))
+            {
+                AddMessage($"Skipping manual user: {un}");
+                continue;
+            }
             var p = parameters with { UserName = un };
             using var dl = new Downloader(p);
             dl.RaiseMessage += AddMessage;
@@ -179,6 +214,11 @@ public partial class DownloadTabControl : UserControl
         var results = new Dictionary<string, List<ExistenceResult>>();
         foreach (var un in parameters.UserNames)
         {
+            if (ManualMarker.Exists(FolderHelper.GetFolder(_mediator.TargetFolder, un)))
+            {
+                AddMessage($"Skipping manual user: {un}");
+                continue;
+            }
             var p = parameters with { UserName = un };
             using var dl = new Downloader(p);
             dl.RaiseMessage += AddMessage;
@@ -189,6 +229,29 @@ public partial class DownloadTabControl : UserControl
         foreach (var (un, result) in results)
             AddMessage($"For user [{un}], froze {result.Count(r => !r.IsExists)}/{result.Count} files (no re-download).");
         AddMessage("Frozen (marked as downloaded + ignored). Future downloads still fetch newer items.");
+    }
+
+    private void btnMarkManual_Click(object? sender, EventArgs e)
+    {
+        if (!Directory.Exists(_mediator.TargetFolder)) { MessageBox.Show(this, "Invalid target folder."); return; }
+        var users = txtUsernames.ParseUserNames();
+        if (users.Count == 0) return;
+
+        foreach (var user in users)
+        {
+            var folder = FolderHelper.GetFolder(_mediator.TargetFolder, user);
+            if (string.IsNullOrEmpty(folder))
+                folder = Path.Combine(_mediator.TargetFolder, user);
+            try
+            {
+                ManualMarker.Mark(folder);
+                AddMessage($"Marked as manual: {user} -> {ManualMarker.GetMarkerPath(folder)}");
+            }
+            catch (Exception ex)
+            {
+                AddMessage($"Failed to mark {user} as manual: {ex.Message}");
+            }
+        }
     }
 
     private void btnCopyFailedUrls_Click(object sender, EventArgs e)
@@ -334,6 +397,20 @@ public partial class DownloadTabControl : UserControl
         AddMessage($"Invalid limit value \"{txtLimit.Text}\", using default 500.");
         txtLimit.Text = "500";
         return 500;
+    }
+
+    private void AutoSizeProgressPanel()
+    {
+        try
+        {
+            int usable = Math.Max(0, messageSplitContainer.Height - messageSplitContainer.SplitterWidth);
+            int maxTop = usable / 2;                        // progress never exceeds half the shared height
+            int distance = Math.Min(progressBox.PreferredHeight, maxTop);
+            messageSplitContainer.SplitterDistance = Math.Max(0, Math.Min(distance, usable));
+        }
+        catch
+        {
+        }
     }
 
     private void AddMessage(string message)

@@ -14,6 +14,8 @@ partial class VideoTabControl
     private void InitializeComponent()
     {
         listBoxVideoProcessingMessages = new ListBox();
+        messageSplitContainer = new SplitContainer();
+        progressBox = new ProgressBox();
         btnCopyFromDownloadTab = new Button();
         label4 = new Label();
         txtVideoProcessingUsers = new TextBox();
@@ -27,18 +29,37 @@ partial class VideoTabControl
         btnWebpToMp4 = new Button();
         SuspendLayout();
         // 
+        // messageSplitContainer
+        // 
+        ((System.ComponentModel.ISupportInitialize)messageSplitContainer).BeginInit();
+        messageSplitContainer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        messageSplitContainer.Location = new Point(6, 120);
+        messageSplitContainer.Name = "messageSplitContainer";
+        messageSplitContainer.Orientation = Orientation.Horizontal;
+        messageSplitContainer.Panel1MinSize = 0;
+        messageSplitContainer.Panel2MinSize = 0;
+        messageSplitContainer.Size = new Size(1591, 582);
+        messageSplitContainer.SplitterDistance = 40;
+        messageSplitContainer.SplitterWidth = 6;
+        messageSplitContainer.TabIndex = 0;
+        // 
+        // progressBox
+        // 
+        progressBox.Dock = DockStyle.Fill;
+        progressBox.Name = "progressBox";
+        messageSplitContainer.Panel1.Controls.Add(progressBox);
+        // 
         // listBoxVideoProcessingMessages
         // 
-        listBoxVideoProcessingMessages.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        listBoxVideoProcessingMessages.Dock = DockStyle.Fill;
         listBoxVideoProcessingMessages.Font = new Font("Cascadia Code", 10F);
         listBoxVideoProcessingMessages.FormattingEnabled = true;
         listBoxVideoProcessingMessages.IntegralHeight = false;
         listBoxVideoProcessingMessages.ItemHeight = 27;
-        listBoxVideoProcessingMessages.Location = new Point(6, 120);
         listBoxVideoProcessingMessages.Name = "listBoxVideoProcessingMessages";
-        listBoxVideoProcessingMessages.Size = new Size(1591, 582);
         listBoxVideoProcessingMessages.TabIndex = 0;
         listBoxVideoProcessingMessages.DoubleClick += listBoxVideoProcessingMessages_DoubleClick;
+        messageSplitContainer.Panel2.Controls.Add(listBoxVideoProcessingMessages);
         // 
         // btnCopyFromDownloadTab
         // 
@@ -154,14 +175,17 @@ partial class VideoTabControl
         Controls.Add(txtVideoProcessingUsers);
         Controls.Add(label4);
         Controls.Add(btnCopyFromDownloadTab);
-        Controls.Add(listBoxVideoProcessingMessages);
+        Controls.Add(messageSplitContainer);
         Name = "VideoTabControl";
         Size = new Size(1603, 708);
+        ((System.ComponentModel.ISupportInitialize)messageSplitContainer).EndInit();
         ResumeLayout(false);
         PerformLayout();
     }
 
     private ListBox listBoxVideoProcessingMessages;
+    private SplitContainer messageSplitContainer;
+    private ProgressBox progressBox;
     private Button btnCompressVideo;
     private Label label4;
     private TextBox txtVideoProcessingUsers;

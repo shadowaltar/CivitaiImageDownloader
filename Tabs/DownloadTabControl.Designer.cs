@@ -38,6 +38,8 @@ partial class DownloadTabControl
         chbAlwaysDownloadLatest = new CheckBox();
         chbNsfw = new CheckBox();
         listBoxMessages = new ListBox();
+        messageSplitContainer = new SplitContainer();
+        progressBox = new ProgressBox();
         btnDownload = new Button();
         label1 = new Label();
         txtUsernames = new TextBox();
@@ -45,6 +47,7 @@ partial class DownloadTabControl
         btnDownloadInfoOnly = new Button();
         btnCreateFolder = new Button();
         btnFreezeCurrentFiles = new Button();
+        btnMarkManual = new Button();
         lblLimit = new Label();
         txtLimit = new TextBox();
         btnClearUsernames = new Button();
@@ -284,17 +287,36 @@ partial class DownloadTabControl
         chbNsfw.Text = "NSFW";
         chbNsfw.UseVisualStyleBackColor = true;
         // 
+        // messageSplitContainer
+        // 
+        ((System.ComponentModel.ISupportInitialize)messageSplitContainer).BeginInit();
+        messageSplitContainer.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        messageSplitContainer.Location = new Point(6, 202);
+        messageSplitContainer.Name = "messageSplitContainer";
+        messageSplitContainer.Orientation = Orientation.Horizontal;
+        messageSplitContainer.Panel1MinSize = 0;
+        messageSplitContainer.Panel2MinSize = 0;
+        messageSplitContainer.Size = new Size(2597, 1030);
+        messageSplitContainer.SplitterDistance = 40;
+        messageSplitContainer.SplitterWidth = 6;
+        messageSplitContainer.TabIndex = 24;
+        // 
+        // progressBox
+        // 
+        progressBox.Dock = DockStyle.Fill;
+        progressBox.Name = "progressBox";
+        messageSplitContainer.Panel1.Controls.Add(progressBox);
+        // 
         // listBoxMessages
         // 
-        listBoxMessages.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+        listBoxMessages.Dock = DockStyle.Fill;
         listBoxMessages.Font = new Font("Cascadia Code", 10F);
         listBoxMessages.FormattingEnabled = true;
         listBoxMessages.ItemHeight = 27;
-        listBoxMessages.Location = new Point(6, 202);
         listBoxMessages.Name = "listBoxMessages";
-        listBoxMessages.Size = new Size(2597, 1030);
-        listBoxMessages.TabIndex = 24;
+        listBoxMessages.TabIndex = 0;
         listBoxMessages.DoubleClick += listBoxMessages_DoubleClick;
+        messageSplitContainer.Panel2.Controls.Add(listBoxMessages);
         // 
         // btnDownload
         // 
@@ -369,6 +391,16 @@ partial class DownloadTabControl
         btnFreezeCurrentFiles.UseVisualStyleBackColor = true;
         btnFreezeCurrentFiles.Click += btnFreezeCurrentFiles_Click;
         // 
+        // btnMarkManual
+        // 
+        btnMarkManual.Location = new Point(1714, 42);
+        btnMarkManual.Name = "btnMarkManual";
+        btnMarkManual.Size = new Size(200, 64);
+        btnMarkManual.TabIndex = 35;
+        btnMarkManual.Text = "Mark as Manual";
+        btnMarkManual.UseVisualStyleBackColor = true;
+        btnMarkManual.Click += btnMarkManual_Click;
+        // 
         // lblLimit
         // 
         lblLimit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -394,6 +426,7 @@ partial class DownloadTabControl
         Controls.Add(btnDownloadInfoOnly);
         Controls.Add(btnCreateFolder);
         Controls.Add(btnFreezeCurrentFiles);
+        Controls.Add(btnMarkManual);
         Controls.Add(btnCompressInfo);
         Controls.Add(btnSetUserNameTextByRating);
         Controls.Add(btnMoveUsersToRating);
@@ -418,7 +451,7 @@ partial class DownloadTabControl
         Controls.Add(chbMature);
         Controls.Add(chbAlwaysDownloadLatest);
         Controls.Add(chbNsfw);
-        Controls.Add(listBoxMessages);
+        Controls.Add(messageSplitContainer);
         Controls.Add(btnDownload);
         Controls.Add(label1);
         Controls.Add(txtUsernames);
@@ -427,6 +460,7 @@ partial class DownloadTabControl
         Controls.Add(btnClearUsernames);
         Name = "DownloadTabControl";
         Size = new Size(2606, 1266);
+        ((System.ComponentModel.ISupportInitialize)messageSplitContainer).EndInit();
         ResumeLayout(false);
         PerformLayout();
     }
@@ -456,6 +490,8 @@ partial class DownloadTabControl
     private CheckBox chbAlwaysDownloadLatest;
     private CheckBox chbNsfw;
     private ListBox listBoxMessages;
+    private SplitContainer messageSplitContainer;
+    private ProgressBox progressBox;
     private Button btnDownload;
     private Label label1;
     internal TextBox txtUsernames;
@@ -463,6 +499,7 @@ partial class DownloadTabControl
     private Button btnDownloadInfoOnly;
     private Button btnCreateFolder;
     private Button btnFreezeCurrentFiles;
+    private Button btnMarkManual;
     private Label lblLimit;
     private TextBox txtLimit;
     private Button btnClearUsernames;

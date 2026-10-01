@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using CivitaiImageDownloader.Models;
 using NetVips;
 using NReco.VideoConverter;
 using VipsImage = NetVips.Image;
@@ -28,6 +29,12 @@ public class AnimatedImageToMp4Converter
 
     public Action<string>? RaiseMessage { get; set; }
 
+    /// <summary>Raised once per run with the number of discovered webp/gif files.</summary>
+    public event Action<int>? ProgressStarted;
+
+    /// <summary>Raised when an item's progress state changes (item index, state).</summary>
+    public event Action<int, ProgressItemState>? ProgressChanged;
+
     public async Task Run()
     {
         var files = Directory.EnumerateFiles(_folder, "*", new EnumerationOptions
@@ -43,6 +50,7 @@ public class AnimatedImageToMp4Converter
         int total = files.Length;
         int converted = 0, failed = 0, skipped = 0;
 
+        ProgressStarted?.Invoke(total);
         await Task.Run(() =>
         {
             Parallel.For(0, total,
@@ -54,6 +62,7 @@ public class AnimatedImageToMp4Converter
                     if (!IsAnimated(file))
                     {
                         Interlocked.Increment(ref skipped);
+                        ProgressChanged?.Invoke(i, ProgressItemState.Skipped);
                         RaiseMessage?.Invoke(SkipMessageMarker + $"{Path.GetFileName(file)} (static)");
                         return;
                     }
@@ -62,12 +71,14 @@ public class AnimatedImageToMp4Converter
                     if (File.Exists(outPath))
                     {
                         Interlocked.Increment(ref skipped);
+                        ProgressChanged?.Invoke(i, ProgressItemState.Already);
                         RaiseMessage?.Invoke(SkipMessageMarker + $"{Path.GetFileName(outPath)} (mp4 exists)");
                         return;
                     }
 
                     try
                     {
+                        ProgressChanged?.Invoke(i, ProgressItemState.Processing);
                         RaiseMessage?.Invoke(prefix + $"Converting {Path.GetFileName(file)} @ {_targetFps}fps ...");
                         ConvertFile(file, outPath);
 
@@ -79,6 +90,7 @@ public class AnimatedImageToMp4Converter
                             RaiseMessage?.Invoke(prefix + $"Warning: converted but failed to delete original {Path.GetFileName(file)}: {de.Message}");
                         }
                         Interlocked.Increment(ref converted);
+                        ProgressChanged?.Invoke(i, ProgressItemState.Done);
                         RaiseMessage?.Invoke(prefix + (originalDeleted
                             ? $"Done: {Path.GetFileName(outPath)} (original deleted)"
                             : $"Done: {Path.GetFileName(outPath)} (original kept)"));
@@ -86,6 +98,7 @@ public class AnimatedImageToMp4Converter
                     catch (Exception e)
                     {
                         Interlocked.Increment(ref failed);
+                        ProgressChanged?.Invoke(i, ProgressItemState.Skipped);
                         RaiseMessage?.Invoke(prefix + $"Failed {Path.GetFileName(file)}: {e.Message}");
                         try { if (File.Exists(outPath)) File.Delete(outPath); } catch { }
                     }

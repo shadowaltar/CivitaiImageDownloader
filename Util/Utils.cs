@@ -9,7 +9,9 @@ public static class Utils
     private static readonly string[] UnwantedInfoKeys = ["hash", "meta", "username", "baseModel", "modelVersionIds", "stats"];
 
     private static bool IsInfoFile(string file) =>
-        !file.EndsWith(Downloader.SkipRecordFileName) && !file.EndsWith(Downloader.DownloadedRecordFileName);
+        !file.EndsWith(Downloader.SkipRecordFileName)
+        && !file.EndsWith(Downloader.DownloadedRecordFileName)
+        && !file.EndsWith(ManualMarker.FileName);
 
     public static void StripUnwantedFields(JsonNode? item)
     {

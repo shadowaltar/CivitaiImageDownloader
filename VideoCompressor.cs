@@ -41,6 +41,12 @@ public class VideoCompressor : IDisposable
 
     public Action<string> RaiseAppendMessage { get; internal set; }
 
+    /// <summary>Raised once per run with the number of discovered video files.</summary>
+    public event Action<int>? ProgressStarted;
+
+    /// <summary>Raised when an item's progress state changes (item index, state).</summary>
+    public event Action<int, ProgressItemState>? ProgressChanged;
+
     public void Dispose()
     {
 
@@ -67,11 +73,14 @@ public class VideoCompressor : IDisposable
             var ffmpeg = new FFMpegConverter();
             var files = Directory.GetFiles(folder, "*.mp4", SearchOption.AllDirectories);
             var totalCount = files.Length;
+            ProgressStarted?.Invoke(totalCount);
             for (int i = 0; i < totalCount; i++)
             {
                 string? path = files[i];
                 string logPrefix = $"[{i}/{totalCount}] ";
+                ProgressChanged?.Invoke(i, ProgressItemState.Processing);
                 var result = await Compress(folder, ffmpeg, logPrefix, path);
+                ProgressChanged?.Invoke(i, result == VideoCompressResult.Good ? ProgressItemState.Done : ProgressItemState.Skipped);
                 if (result == VideoCompressResult.Failed)
                 {
                     failedCount++;
@@ -94,10 +103,13 @@ public class VideoCompressor : IDisposable
                 var totalCount = files.Length;
                 int goodCount = 0;
                 int failedCount = 0;
+                ProgressStarted?.Invoke(totalCount);
                 for (int i = 0; i < totalCount; i++)
                 {
                     string logPrefix = $"[{i}/{totalCount}] ";
+                    ProgressChanged?.Invoke(i, ProgressItemState.Processing);
                     var result = await Compress(name, ffmpeg, logPrefix, files[i]);
+                    ProgressChanged?.Invoke(i, result == VideoCompressResult.Good ? ProgressItemState.Done : ProgressItemState.Skipped);
                     if (result == VideoCompressResult.Failed)
                     {
                         failedCount++;
@@ -121,6 +133,7 @@ public class VideoCompressor : IDisposable
     private async Task<VideoCompressResult> Compress(string folder, FFMpegConverter ffmpeg, string logPrefix, string path)
     {
         string? compressedFile = null;
+        var convertResult = VideoCompressResult.Good;
         try
         {
             var ext = Path.GetExtension(path).ToLower();
@@ -140,7 +153,7 @@ public class VideoCompressor : IDisposable
 
             await Task.Run(() =>
             {
-                (var result, Rect old, Rect @new) = Convert(ffmpeg, path, compressedFile);
+                (convertResult, Rect old, Rect @new) = Convert(ffmpeg, path, compressedFile);
                 var resultFile = new FileInfo(compressedFile);
                 if (resultFile.Exists)
                 {
@@ -152,7 +165,7 @@ public class VideoCompressor : IDisposable
                     File.Move(compressedFile, path);
                 }
                 else
-                    RaiseAppendMessage?.Invoke($" Skipped: {result}");
+                    RaiseAppendMessage?.Invoke($" Skipped: {convertResult}");
             });
         }
         catch (FFMpegException ex)
@@ -171,7 +184,7 @@ public class VideoCompressor : IDisposable
             return VideoCompressResult.Failed;
         }
 
-        return VideoCompressResult.Good;
+        return convertResult;
     }
 
     private (VideoCompressResult result, Rect oldDimension, Rect newDimension) Convert(FFMpegConverter ffmpeg, string path, string? compressedFile)

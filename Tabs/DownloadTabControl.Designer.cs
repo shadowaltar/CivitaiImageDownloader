@@ -26,7 +26,6 @@ partial class DownloadTabControl
         btnCopyAllSubdirNames = new Button();
         lblDownloadingCounter = new Label();
         btnStop = new Button();
-        btnMarkDeletedFilesNoRedownload = new Button();
         chbDownloadImage = new CheckBox();
         btnOpenFirstUserFolder = new Button();
         btnCopyFailedUrls = new Button();
@@ -173,15 +172,6 @@ partial class DownloadTabControl
         btnStop.TabIndex = 12;
         btnStop.Text = "Stop";
         btnStop.Click += btnStop_Click;
-        // 
-        // btnMarkDeletedFilesNoRedownload
-        // 
-        btnMarkDeletedFilesNoRedownload.Location = new Point(306, 42);
-        btnMarkDeletedFilesNoRedownload.Name = "btnMarkDeletedFilesNoRedownload";
-        btnMarkDeletedFilesNoRedownload.Size = new Size(216, 64);
-        btnMarkDeletedFilesNoRedownload.TabIndex = 13;
-        btnMarkDeletedFilesNoRedownload.Text = "Mark Deleted Files No Redownload";
-        btnMarkDeletedFilesNoRedownload.Click += btnMarkDeletedFilesNoRedownload_Click;
         // 
         // chbDownloadImage
         // 
@@ -383,10 +373,10 @@ partial class DownloadTabControl
         // 
         // btnFreezeCurrentFiles
         // 
-        btnFreezeCurrentFiles.Location = new Point(1714, 112);
+        btnFreezeCurrentFiles.Location = new Point(306, 42);
         btnFreezeCurrentFiles.Name = "btnFreezeCurrentFiles";
-        btnFreezeCurrentFiles.Size = new Size(200, 64);
-        btnFreezeCurrentFiles.TabIndex = 34;
+        btnFreezeCurrentFiles.Size = new Size(216, 64);
+        btnFreezeCurrentFiles.TabIndex = 13;
         btnFreezeCurrentFiles.Text = "Freeze Current Files";
         btnFreezeCurrentFiles.UseVisualStyleBackColor = true;
         btnFreezeCurrentFiles.Click += btnFreezeCurrentFiles_Click;
@@ -440,7 +430,6 @@ partial class DownloadTabControl
         Controls.Add(btnCopyAllSubdirNames);
         Controls.Add(lblDownloadingCounter);
         Controls.Add(btnStop);
-        Controls.Add(btnMarkDeletedFilesNoRedownload);
         Controls.Add(chbDownloadImage);
         Controls.Add(btnOpenFirstUserFolder);
         Controls.Add(btnCopyFailedUrls);
@@ -478,7 +467,6 @@ partial class DownloadTabControl
     private Button btnCopyAllSubdirNames;
     private Label lblDownloadingCounter;
     private Button btnStop;
-    private Button btnMarkDeletedFilesNoRedownload;
     private CheckBox chbDownloadImage;
     private Button btnOpenFirstUserFolder;
     private Button btnCopyFailedUrls;

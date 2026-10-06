@@ -121,6 +121,7 @@ public partial class VideoTabControl : UserControl
                 names = [_mediator.TargetFolder];
             }
         }
+        long totalBefore = 0, totalAfter = 0;
         foreach (var name in names)
         {
             var mode = VideoProcessInputMode.UserName;
@@ -140,11 +141,18 @@ public partial class VideoTabControl : UserControl
             _videoCompressor.ProgressStarted += total => Invoke(() => BeginProgress($"Progress: Compress \u2013 {name} \u2013 {total} item(s)", total));
             _videoCompressor.ProgressChanged += (idx, state) => progressBox.SetState(idx, state);
             await _videoCompressor.Run();
+            totalBefore += _videoCompressor.TotalBytesBefore;
+            totalAfter += _videoCompressor.TotalBytesAfter;
             _videoCompressor.RaiseAddMessage -= AddVideoProcessingMessage;
             _videoCompressor.RaiseAppendMessage -= AppendVideoProcessingMessage;
             _videoCompressor.Dispose();
             AddVideoProcessingMessage($"{name} compress is done");
         }
+
+        const double mb = 1024.0 * 1024.0;
+        var saved = totalBefore - totalAfter;
+        var pct = totalBefore > 0 ? 100.0 * saved / totalBefore : 0;
+        AddVideoProcessingMessage($"Compression done. Before: {totalBefore / mb:F2} MB, After: {totalAfter / mb:F2} MB, Saved: {saved / mb:F2} MB ({pct:F1}%)");
         AddVideoProcessingMessage("All done");
 
         _mediator.RecordVideoHistory(txtVideoProcessingUsers.Text.Trim());

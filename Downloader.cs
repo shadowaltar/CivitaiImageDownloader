@@ -92,11 +92,11 @@ public class Downloader : IDisposable
         return result;
     }
 
-    /// <param name="markAllMissing">
-    /// When true, every file currently in the index that is not present on disk is added to the
-    /// ignore record ("freeze" the current state) instead of only files that were downloaded and later deleted.
-    /// </param>
-    public async Task<List<ExistenceResult>> MarkNonExistFiles(bool markAllMissing = false)
+    /// <summary>
+    /// Freezes the current state: every file in the local index that is not present on disk is added to the
+    /// ignore record (media-to-ignore.json) and recorded as downloaded, so only newer items download later.
+    /// </summary>
+    public async Task<List<ExistenceResult>> MarkNonExistFiles()
     {
         var allMetas = new List<MediaMeta>();
         var folder = FolderHelper.GetFolder(_rootFolder, _userName);
@@ -121,16 +121,12 @@ public class Downloader : IDisposable
 
         LoopHelper.Loop(ParallelMode, allMetas, MarkMeta);
 
-        var resultString = JsonSerializer.Serialize(results.Where(r => !r.IsExists && (markAllMissing || r.WasDownloaded)).ToArray(), new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(Path.Combine(folder, SkipRecordFileName), resultString);
+        var missing = results.Where(r => !r.IsExists).ToArray();
+        File.WriteAllText(Path.Combine(folder, SkipRecordFileName),
+            JsonSerializer.Serialize(missing, new JsonSerializerOptions { WriteIndented = true }));
 
-        if (markAllMissing)
-        {
-            // Pretend the frozen (not-downloaded) files were downloaded. A later
-            // "Mark Deleted Files No Redownload" only keeps files with WasDownloaded=true,
-            // so this makes the frozen state survive that operation.
-            UpdateDownloadedRecord(folder, results.Where(r => !r.IsExists).Select(r => r.FilePath));
-        }
+        // Pretend the frozen (not-downloaded) files were downloaded so the frozen state persists.
+        UpdateDownloadedRecord(folder, missing.Select(r => r.FilePath));
 
         return results;
 

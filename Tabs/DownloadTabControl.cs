@@ -178,32 +178,6 @@ public partial class DownloadTabControl : UserControl
         }
     }
 
-    private async void btnMarkDeletedFilesNoRedownload_Click(object sender, EventArgs e)
-    {
-        Invoke(listBoxMessages.Items.Clear);
-        _mediator.DownloadResults.Clear();
-        var parameters = CreateDownloadParameters();
-        if (parameters == null) return;
-
-        var results = new Dictionary<string, List<ExistenceResult>>();
-        foreach (var un in parameters.UserNames)
-        {
-            if (ManualMarker.Exists(FolderHelper.GetFolder(_mediator.TargetFolder, un)))
-            {
-                AddMessage($"Skipping manual user: {un}");
-                continue;
-            }
-            var p = parameters with { UserName = un };
-            using var dl = new Downloader(p);
-            dl.RaiseMessage += AddMessage;
-            var result = await dl.MarkNonExistFiles();
-            results[un] = result;
-            dl.RaiseMessage -= AddMessage;
-        }
-        foreach (var (un, result) in results)
-            AddMessage($"For user [{un}], marked {result.Count(r => !r.IsExists && r.WasDownloaded)}/{result.Count} files non-exist.");
-    }
-
     private async void btnFreezeCurrentFiles_Click(object sender, EventArgs e)
     {
         Invoke(listBoxMessages.Items.Clear);
@@ -222,7 +196,7 @@ public partial class DownloadTabControl : UserControl
             var p = parameters with { UserName = un };
             using var dl = new Downloader(p);
             dl.RaiseMessage += AddMessage;
-            var result = await dl.MarkNonExistFiles(markAllMissing: true);
+            var result = await dl.MarkNonExistFiles();
             results[un] = result;
             dl.RaiseMessage -= AddMessage;
         }

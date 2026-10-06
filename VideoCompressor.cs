@@ -11,9 +11,17 @@ public class VideoCompressor : IDisposable
     private string _rootFolder;
     private string name;
     private readonly VideoProcessInputMode mode;
-    private readonly FFProbe _ffProbe = new FFProbe();
 
     public string UserName => mode == VideoProcessInputMode.UserName ? name : "";
+
+    private long _totalBytesBefore;
+    private long _totalBytesAfter;
+
+    /// <summary>Total size (bytes) of the files considered by the last run, before compression.</summary>
+    public long TotalBytesBefore => _totalBytesBefore;
+
+    /// <summary>Total size (bytes) of the files after compression (unchanged files count at their original size).</summary>
+    public long TotalBytesAfter => _totalBytesAfter;
 
     // Skip tiny/very short files outright.
     public long CompressionMinBytes { get; set; } = 300 * 1024; // 300 KB
@@ -36,6 +44,9 @@ public class VideoCompressor : IDisposable
     }
 
     public bool ShouldStop { get; internal set; }
+
+    /// <summary>How many videos to compress at once. x264 is already multithreaded, so keep this modest.</summary>
+    public int MaxParallelism { get; set; } = Math.Clamp(Environment.ProcessorCount / 2, 1, 4);
 
     public Action<string> RaiseAddMessage { get; internal set; }
 
@@ -67,70 +78,52 @@ public class VideoCompressor : IDisposable
                 return;
             }
 
-            int goodCount = 0;
-            int failedCount = 0;
-
-            var ffmpeg = new FFMpegConverter();
             var files = Directory.GetFiles(folder, "*.mp4", SearchOption.AllDirectories);
-            var totalCount = files.Length;
-            ProgressStarted?.Invoke(totalCount);
-            for (int i = 0; i < totalCount; i++)
-            {
-                string? path = files[i];
-                string logPrefix = $"[{i}/{totalCount}] ";
-                ProgressChanged?.Invoke(i, ProgressItemState.Processing);
-                var result = await Compress(folder, ffmpeg, logPrefix, path);
-                ProgressChanged?.Invoke(i, result == VideoCompressResult.Good ? ProgressItemState.Done : ProgressItemState.Skipped);
-                if (result == VideoCompressResult.Failed)
-                {
-                    failedCount++;
-                }
-                else
-                {
-                    goodCount++;
-                }
-            }
-            RaiseAddMessage?.Invoke($"Finished. Good/Error/Total: {goodCount}/{failedCount}/{totalCount}");
+            await CompressAll(folder, files);
         }
         else
         {
-            var ffmpeg = new FFMpegConverter();
             if (Directory.Exists(name))
             {
                 var files = Directory.GetFiles(name, "*", SearchOption.AllDirectories)
                     .Where(f => Path.GetExtension(f).ToLower() is ".mp4" or ".webm" or ".mov" or ".avi")
                     .ToArray();
-                var totalCount = files.Length;
-                int goodCount = 0;
-                int failedCount = 0;
-                ProgressStarted?.Invoke(totalCount);
-                for (int i = 0; i < totalCount; i++)
-                {
-                    string logPrefix = $"[{i}/{totalCount}] ";
-                    ProgressChanged?.Invoke(i, ProgressItemState.Processing);
-                    var result = await Compress(name, ffmpeg, logPrefix, files[i]);
-                    ProgressChanged?.Invoke(i, result == VideoCompressResult.Good ? ProgressItemState.Done : ProgressItemState.Skipped);
-                    if (result == VideoCompressResult.Failed)
-                    {
-                        failedCount++;
-                    }
-                    else
-                    {
-                        goodCount++;
-                    }
-                }
-                RaiseAddMessage?.Invoke($"Finished. Good/Error/Total: {goodCount}/{failedCount}/{totalCount}");
+                await CompressAll(name, files);
             }
             else
             {
                 var folder = Path.GetDirectoryName(name) ?? "";
-                var result = await Compress(folder, ffmpeg, "", name);
+                var result = await Compress(folder, "", name);
                 RaiseAddMessage?.Invoke($"Finished, result: {(result == VideoCompressResult.Good ? "Good" : "Failed")}");
             }
         }
     }
 
-    private async Task<VideoCompressResult> Compress(string folder, FFMpegConverter ffmpeg, string logPrefix, string path)
+    private async Task CompressAll(string folder, string[] files)
+    {
+        var totalCount = files.Length;
+        ProgressStarted?.Invoke(totalCount);
+        int goodCount = 0, failedCount = 0;
+
+        await Parallel.ForEachAsync(Enumerable.Range(0, totalCount),
+            new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, MaxParallelism) },
+            async (i, _) =>
+            {
+                if (ShouldStop)
+                    return;
+                ProgressChanged?.Invoke(i, ProgressItemState.Processing);
+                var result = await Compress(folder, $"[{i}/{totalCount}] ", files[i]);
+                ProgressChanged?.Invoke(i, result == VideoCompressResult.Good ? ProgressItemState.Done : ProgressItemState.Skipped);
+                if (result == VideoCompressResult.Failed)
+                    Interlocked.Increment(ref failedCount);
+                else
+                    Interlocked.Increment(ref goodCount);
+            });
+
+        RaiseAddMessage?.Invoke($"Finished. Good/Error/Total: {goodCount}/{failedCount}/{totalCount}");
+    }
+
+    private async Task<VideoCompressResult> Compress(string folder, string logPrefix, string path)
     {
         string? compressedFile = null;
         var convertResult = VideoCompressResult.Good;
@@ -145,12 +138,15 @@ public class VideoCompressor : IDisposable
             var fi = new FileInfo(path);
             if (fi.Length < CompressionMinBytes)
             {
-                // skip small files
+                // skip small files (unchanged)
+                Interlocked.Add(ref _totalBytesBefore, fi.Length);
+                Interlocked.Add(ref _totalBytesAfter, fi.Length);
                 return VideoCompressResult.SkippedFileSizeTooSmall;
             }
             compressedFile = Path.Combine(Path.GetDirectoryName(path) ?? folder, "compressing_" + fi.Name);
             RaiseAddMessage?.Invoke($"{logPrefix}Compress video: {fi.Name} ...");
 
+            var ffmpeg = new FFMpegConverter();
             await Task.Run(() =>
             {
                 (convertResult, Rect old, Rect @new) = Convert(ffmpeg, path, compressedFile);
@@ -159,28 +155,33 @@ public class VideoCompressor : IDisposable
                 {
                     var oldMb = fi.Length / 1024.0 / 1024.0;
                     var newMb = resultFile.Length / 1024.0 / 1024.0;
-                    RaiseAppendMessage?.Invoke($" Result: {oldMb:.00}MB -> {newMb:.00}MB; {old.Width}x{old.Height} -> {@new.Width}x{@new.Height}");
+                    // self-contained message (safe when several files compress in parallel)
+                    RaiseAddMessage?.Invoke($"{logPrefix}Result {fi.Name}: {oldMb:.00}MB -> {newMb:.00}MB; {old.Width}x{old.Height} -> {@new.Width}x{@new.Height}");
 
+                    Interlocked.Add(ref _totalBytesBefore, fi.Length);
+                    Interlocked.Add(ref _totalBytesAfter, resultFile.Length);
                     File.Delete(path);
                     File.Move(compressedFile, path);
                 }
                 else
-                    RaiseAppendMessage?.Invoke($" Skipped: {convertResult}");
+                {
+                    Interlocked.Add(ref _totalBytesBefore, fi.Length);
+                    Interlocked.Add(ref _totalBytesAfter, fi.Length);
+                    RaiseAddMessage?.Invoke($"{logPrefix}Skipped {fi.Name}: {convertResult}");
+                }
             });
         }
         catch (FFMpegException ex)
         {
             // This ErrorCode tells you exactly why FFmpeg died (e.g., 1 for general error)
             RaiseAddMessage?.Invoke($"{logPrefix}FFMpeg Error Code: {ex.ErrorCode}; Msg: {ex.Message}");
-            if (compressedFile != null)
-                File.Delete(compressedFile);
+            if (compressedFile != null) { try { File.Delete(compressedFile); } catch { } }
             return VideoCompressResult.Failed;
         }
         catch (Exception e)
         {
-            RaiseAddMessage?.Invoke($"Error: {e}.");
-            if (compressedFile != null)
-                File.Delete(compressedFile);
+            RaiseAddMessage?.Invoke($"{logPrefix}Error: {e}.");
+            if (compressedFile != null) { try { File.Delete(compressedFile); } catch { } }
             return VideoCompressResult.Failed;
         }
 
@@ -191,7 +192,7 @@ public class VideoCompressor : IDisposable
     {
         const float newFrameRate = 30;
         const float qualityRate = 23;
-        MediaInfo videoInfo = _ffProbe.GetMediaInfo(path);
+        MediaInfo videoInfo = new FFProbe().GetMediaInfo(path);
 
         // Pick the actual video stream (Streams[0] may be audio/other and report -1x-1).
         var videoStream = videoInfo.Streams?.FirstOrDefault(s => s.CodecType?.ToLower() == "video");

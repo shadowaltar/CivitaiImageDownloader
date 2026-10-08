@@ -11,6 +11,9 @@ partial class ViewerTabControl
         base.Dispose(disposing);
         if (disposing)
         {
+            _videoStartTimer?.Stop();
+            _videoStartTimer?.Dispose();
+            _videoStartTimer = null;
             // dispose LibVLC after the child VideoViews/players have been disposed
             _libVLC?.Dispose();
             _libVLC = null;

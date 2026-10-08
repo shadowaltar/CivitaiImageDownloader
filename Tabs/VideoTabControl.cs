@@ -10,6 +10,7 @@ public partial class VideoTabControl : UserControl
 {
     private readonly AppMediator _mediator;
     private VideoCompressor? _videoCompressor;
+    private CancellationTokenSource? _videoCts;
 
     public VideoTabControl(AppMediator mediator)
     {
@@ -23,11 +24,44 @@ public partial class VideoTabControl : UserControl
         };
         txtVideoProcessingUsers.TextChanged += (s, e) => _mediator.VideoUsernames = txtVideoProcessingUsers.Text;
         _mediator.Stopping = false;
+
+        // The labels are AutoSize, so their real width is recomputed from the font at runtime; position the
+        // fps/min-size textboxes from those actual widths so the margins are always correct.
+        LayoutFpsRow();
+        Load += (_, _) => LayoutFpsRow();
     }
+
+    private void LayoutFpsRow()
+    {
+        const int gap = 6;
+        txtMinFps.Left = lblMinFps.Right + gap;
+        lblTargetFps.Left = txtMinFps.Right + 10;
+        txtTargetFps.Left = lblTargetFps.Right + gap;
+        btnWebpToMp4.Left = txtTargetFps.Right + 12;
+        lblMinSize.Left = btnWebpToMp4.Right + 12;
+        txtMinSize.Left = lblMinSize.Right + gap;
+        btnStopVideo.Left = txtMinSize.Right + 12;
+
+        CenterLabelWith(lblMinFps, txtMinFps);
+        CenterLabelWith(lblTargetFps, txtTargetFps);
+        CenterLabelWith(lblMinSize, txtMinSize);
+    }
+
+    private static void CenterLabelWith(Label label, Control box)
+        => label.Top = box.Top + (box.Height - label.Height) / 2;
 
     private void btnCopyFromDownloadTab_Click(object sender, EventArgs e)
     {
         txtVideoProcessingUsers.Text = _mediator.DownloadUsernames;
+    }
+
+    private void btnStopVideo_Click(object? sender, EventArgs e)
+    {
+        _mediator.Stopping = true;
+        if (_videoCompressor != null)
+            _videoCompressor.ShouldStop = true;
+        _videoCts?.Cancel();
+        AddVideoProcessingMessage("Stop requested.");
     }
 
     private void btnSelectFolder_Click(object sender, EventArgs e)
@@ -41,6 +75,9 @@ public partial class VideoTabControl : UserControl
 
     private async void btnWebpToMp4_Click(object sender, EventArgs e)
     {
+        _mediator.Stopping = false;
+        _videoCts = new CancellationTokenSource();
+        var token = _videoCts.Token;
         Invoke(() =>
         {
             listBoxVideoProcessingMessages.Items.Clear();
@@ -86,13 +123,18 @@ public partial class VideoTabControl : UserControl
                 AddVideoProcessingMessage($"Scanning {folder} (including subfolders) ...");
                 var converter = new AnimatedImageToMp4Converter(folder, targetFps)
                 {
-                    RaiseMessage = AddVideoProcessingMessage
+                    RaiseMessage = AddVideoProcessingMessage,
+                    CancellationToken = token
                 };
                 converter.ProgressStarted += total => Invoke(() => BeginProgress($"Progress: Webp/Gif \u2192 MP4 \u2013 {Path.GetFileName(folder)} \u2013 {total} item(s)", total));
                 converter.ProgressChanged += (idx, state) => progressBox.SetState(idx, state);
                 await converter.Run();
                 AddVideoProcessingMessage($"{Path.GetFileName(folder)} convert is done");
             }
+        }
+        catch (OperationCanceledException)
+        {
+            AddVideoProcessingMessage("Webp/Gif \u2192 MP4 stopped.");
         }
         finally
         {
@@ -103,6 +145,7 @@ public partial class VideoTabControl : UserControl
 
     private async void btnCompressVideo_Click(object sender, EventArgs e)
     {
+        _mediator.Stopping = false;
         Invoke(() =>
         {
             listBoxVideoProcessingMessages.Items.Clear();
@@ -121,6 +164,15 @@ public partial class VideoTabControl : UserControl
                 names = [_mediator.TargetFolder];
             }
         }
+        long minCompressBytes;
+        if (double.TryParse(txtMinSize.Text.Trim(), out var minMib) && minMib >= 0)
+            minCompressBytes = (long)(minMib * 1024 * 1024);
+        else
+        {
+            AddVideoProcessingMessage($"Invalid Min Size \"{txtMinSize.Text}\", using default 5 MiB.");
+            minCompressBytes = 5L * 1024 * 1024;
+        }
+
         long totalBefore = 0, totalAfter = 0;
         foreach (var name in names)
         {
@@ -135,7 +187,10 @@ public partial class VideoTabControl : UserControl
                 _mediator.LogMessage("Video compression stopped.");
                 break;
             }
-            _videoCompressor = new VideoCompressor(_mediator.TargetFolder, name, mode);
+            _videoCompressor = new VideoCompressor(_mediator.TargetFolder, name, mode)
+            {
+                CompressionMinBytes = minCompressBytes
+            };
             _videoCompressor.RaiseAddMessage += AddVideoProcessingMessage;
             _videoCompressor.RaiseAppendMessage += AppendVideoProcessingMessage;
             _videoCompressor.ProgressStarted += total => Invoke(() => BeginProgress($"Progress: Compress \u2013 {name} \u2013 {total} item(s)", total));
@@ -276,6 +331,9 @@ public partial class VideoTabControl : UserControl
             return;
         }
 
+        _mediator.Stopping = false;
+        _videoCts = new CancellationTokenSource();
+        var token = _videoCts.Token;
         Invoke(() => progressBox.Clear());
         btnEnhanceFrameRate.Enabled = false;
         try
@@ -284,6 +342,8 @@ public partial class VideoTabControl : UserControl
             {
                 foreach (var name in names)
                 {
+                    if (token.IsCancellationRequested)
+                        break;
                     var folder = Directory.Exists(name)
                         ? name
                         : FolderHelper.GetFolder(_mediator.TargetFolder, name);
@@ -309,7 +369,7 @@ public partial class VideoTabControl : UserControl
                     int scannedCount = 0;
                     Invoke(() => AddVideoProcessingMessage($"Scanning {videoFiles.Length} videos for {name}..."));
                     Parallel.ForEach(videoFiles,
-                        new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Math.Min(Environment.ProcessorCount, 4)) },
+                        new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, Math.Min(Environment.ProcessorCount, 4)), CancellationToken = token },
                         file =>
                         {
                             try
@@ -342,7 +402,7 @@ public partial class VideoTabControl : UserControl
                     var done = 0;
                     var total = toEnhance.Count;
                     Parallel.ForEach(toEnhance,
-                        new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+                        new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = token },
                         item =>
                         {
                             var n = Interlocked.Increment(ref done);
@@ -380,6 +440,10 @@ public partial class VideoTabControl : UserControl
                     Invoke(() => AddVideoProcessingMessage($"{name} enhance is done"));
                 }
             });
+        }
+        catch (OperationCanceledException)
+        {
+            Invoke(() => AddVideoProcessingMessage("Enhance stopped."));
         }
         finally
         {

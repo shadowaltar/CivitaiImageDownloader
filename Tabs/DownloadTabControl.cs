@@ -15,6 +15,8 @@ public partial class DownloadTabControl : UserControl
         _mediator = mediator;
         InitializeComponent();
         ListBoxCopyHelper.EnableCopy(listBoxMessages);
+        // keep the (longer) limit label clear of the limit textbox
+        lblLimit.Left = txtLimit.Left - lblLimit.Width - 6;
 
         txtUsernames.TextChanged += (s, e) => _mediator.DownloadUsernames = txtUsernames.Text;
         _mediator.UsernamesCopiedToDownload += usernames => txtUsernames.Text = usernames;
@@ -368,9 +370,9 @@ public partial class DownloadTabControl : UserControl
     {
         if (int.TryParse(txtLimit.Text.Trim(), out var limit) && limit > 0)
             return limit;
-        AddMessage($"Invalid limit value \"{txtLimit.Text}\", using default 500.");
-        txtLimit.Text = "500";
-        return 500;
+        AddMessage($"Invalid limit value \"{txtLimit.Text}\", using default 400.");
+        txtLimit.Text = "400";
+        return 400;
     }
 
     private void AutoSizeProgressPanel()

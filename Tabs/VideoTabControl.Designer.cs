@@ -26,6 +26,9 @@ partial class VideoTabControl
         txtMinFps = new TextBox();
         lblTargetFps = new Label();
         txtTargetFps = new TextBox();
+        lblMinSize = new Label();
+        txtMinSize = new TextBox();
+        btnStopVideo = new Button();
         btnWebpToMp4 = new Button();
         SuspendLayout();
         // 
@@ -121,7 +124,7 @@ partial class VideoTabControl
         // lblMinFps
         // 
         lblMinFps.AutoSize = true;
-        lblMinFps.Location = new Point(758, 86);
+        lblMinFps.Location = new Point(758, 83);
         lblMinFps.Name = "lblMinFps";
         lblMinFps.Size = new Size(69, 24);
         lblMinFps.TabIndex = 7;
@@ -138,7 +141,7 @@ partial class VideoTabControl
         // lblTargetFps
         // 
         lblTargetFps.AutoSize = true;
-        lblTargetFps.Location = new Point(891, 86);
+        lblTargetFps.Location = new Point(891, 83);
         lblTargetFps.Name = "lblTargetFps";
         lblTargetFps.Size = new Size(86, 24);
         lblTargetFps.TabIndex = 9;
@@ -151,6 +154,33 @@ partial class VideoTabControl
         txtTargetFps.Size = new Size(50, 30);
         txtTargetFps.TabIndex = 10;
         txtTargetFps.Text = "30";
+        // 
+        // lblMinSize
+        // 
+        lblMinSize.AutoSize = true;
+        lblMinSize.Location = new Point(1265, 83);
+        lblMinSize.Name = "lblMinSize";
+        lblMinSize.Size = new Size(120, 24);
+        lblMinSize.TabIndex = 12;
+        lblMinSize.Text = "Min Size (MiB)";
+        // 
+        // txtMinSize
+        // 
+        txtMinSize.Location = new Point(1390, 80);
+        txtMinSize.Name = "txtMinSize";
+        txtMinSize.Size = new Size(60, 30);
+        txtMinSize.TabIndex = 13;
+        txtMinSize.Text = "5";
+        // 
+        // btnStopVideo
+        // 
+        btnStopVideo.Location = new Point(1470, 80);
+        btnStopVideo.Name = "btnStopVideo";
+        btnStopVideo.Size = new Size(120, 34);
+        btnStopVideo.TabIndex = 14;
+        btnStopVideo.Text = "Stop";
+        btnStopVideo.UseVisualStyleBackColor = true;
+        btnStopVideo.Click += btnStopVideo_Click;
         // 
         // btnWebpToMp4
         // 
@@ -169,6 +199,9 @@ partial class VideoTabControl
         Controls.Add(lblTargetFps);
         Controls.Add(txtMinFps);
         Controls.Add(lblMinFps);
+        Controls.Add(txtMinSize);
+        Controls.Add(lblMinSize);
+        Controls.Add(btnStopVideo);
         Controls.Add(btnSelectFolder);
         Controls.Add(btnEnhanceFrameRate);
         Controls.Add(btnCompressVideo);
@@ -196,5 +229,8 @@ partial class VideoTabControl
     private TextBox txtMinFps;
     private Label lblTargetFps;
     private TextBox txtTargetFps;
+    private Label lblMinSize;
+    private TextBox txtMinSize;
+    private Button btnStopVideo;
     private Button btnWebpToMp4;
 }

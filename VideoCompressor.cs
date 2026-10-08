@@ -23,8 +23,8 @@ public class VideoCompressor : IDisposable
     /// <summary>Total size (bytes) of the files after compression (unchanged files count at their original size).</summary>
     public long TotalBytesAfter => _totalBytesAfter;
 
-    // Skip tiny/very short files outright.
-    public long CompressionMinBytes { get; set; } = 300 * 1024; // 300 KB
+    // Skip files below this size outright (default 5 MiB).
+    public long CompressionMinBytes { get; set; } = 5L * 1024 * 1024; // 5 MiB
     public double CompressionMinDurationSeconds { get; set; } = 1.0;
 
     // Downscale factor; the shorter output side is never allowed below CompressionMinDimension.
@@ -101,6 +101,13 @@ public class VideoCompressor : IDisposable
 
     private async Task CompressAll(string folder, string[] files)
     {
+        // compress the biggest files first
+        files = files.OrderByDescending(f =>
+        {
+            try { return new FileInfo(f).Length; }
+            catch { return 0L; }
+        }).ToArray();
+
         var totalCount = files.Length;
         ProgressStarted?.Invoke(totalCount);
         int goodCount = 0, failedCount = 0;

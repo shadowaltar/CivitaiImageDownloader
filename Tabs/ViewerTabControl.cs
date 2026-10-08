@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using CivitaiImageDownloader.Util;
 using LibVLCSharp.Shared;
 using LibVLCSharp.WinForms;
@@ -9,14 +10,49 @@ namespace CivitaiImageDownloader.Tabs;
 
 public partial class ViewerTabControl : UserControl
 {
+    private const int WmMouseWheel = 0x020A;
+    private const int WhMouseLowLevel = 14;
+
+    private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MsllHookStruct
+    {
+        public Point pt;
+        public uint mouseData;
+        public uint flags;
+        public uint time;
+        public IntPtr dwExtraInfo;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")]
+    private static extern IntPtr WindowFromPoint(Point point);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelMouseProc lpfn, IntPtr hMod, uint dwThreadId);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+    [DllImport("user32.dll")]
+    private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
+    private static extern IntPtr GetModuleHandle(string? lpModuleName);
+
+    private IntPtr _mouseHook = IntPtr.Zero;
+    private LowLevelMouseProc? _mouseProc;
+
     private readonly AppMediator _mediator;
     private Panel? _selectedViewerTile;
     private CancellationTokenSource? _loadCts;
+    private const int TileWidth = 500;
+    private const int TileHeight = 667; // keeps the original 3:4 tile proportion
     private float _zoomFactor = 1.0f;
     private DateTime _lastZoomTime = DateTime.MinValue;
     private int _pendingZoomDelta;
     private System.Windows.Forms.Timer? _zoomTimer;
     private LibVLC? _libVLC;
+    private System.Windows.Forms.Timer? _videoStartTimer;
+    private (Panel panel, string filePath, PictureBox pictureBox)? _pendingVideo;
 
     public ViewerTabControl(AppMediator mediator)
     {
@@ -24,6 +60,8 @@ public partial class ViewerTabControl : UserControl
         Core.Initialize();
         _libVLC = new LibVLC();
         InitializeComponent();
+        _mouseProc = MouseHookProc;
+        _mouseHook = SetWindowsHookEx(WhMouseLowLevel, _mouseProc, GetModuleHandle(null), 0);
         treeViewNavigator.AfterSelect += treeViewNavigator_AfterSelect;
         treeViewNavigator.MouseDown += (s, e) =>
         {
@@ -95,7 +133,7 @@ public partial class ViewerTabControl : UserControl
         var steps = Math.Sign(_pendingZoomDelta);
         _lastZoomTime = DateTime.UtcNow;
         _pendingZoomDelta = 0;
-        _zoomFactor = Math.Clamp(_zoomFactor + steps * 3.0f, 0.3f, 3.0f);
+        _zoomFactor = Math.Clamp(_zoomFactor + steps * 0.1f, 0.3f, 3.0f);
         ApplyZoomToTiles();
     }
 
@@ -179,6 +217,9 @@ public partial class ViewerTabControl : UserControl
         if (string.IsNullOrEmpty(folder))
             return;
 
+        // stop any video still playing from the previous folder before clearing the tiles
+        StopAllVideos();
+
         flowLayoutPanelViewer.Controls.Clear();
         flowLayoutPanelViewer.AutoScrollPosition = Point.Empty;
 
@@ -204,6 +245,8 @@ public partial class ViewerTabControl : UserControl
                         if (relative.Split(Path.DirectorySeparatorChar).Any(seg => seg.StartsWith("!")))
                             return false;
                     }
+                    if (PathUtils.IsTempMediaFile(Path.GetFileName(f)))
+                        return false;
                     var ext = Path.GetExtension(f).ToLower();
                     return ext switch
                     {
@@ -232,28 +275,27 @@ public partial class ViewerTabControl : UserControl
         {
             if (token.IsCancellationRequested) return;
 
-            var batch = files.Skip(i).Take(batchSize).Select(async file =>
+            var tasks = files.Skip(i).Take(batchSize).Select(async file =>
             {
                 bool isVideo = IsVideoFile(file);
                 Image? thumb = isVideo
                     ? await Task.Run(() => LoadVideoThumbnail(file), token)
                     : await Task.Run(() => LoadThumbnailImage(file), token);
                 return (file, isVideo, thumb);
-            }).ToArray();
+            }).ToList();
 
-            var results = await Task.WhenAll(batch);
-
-            foreach (var (file, isVideo, thumb) in results)
+            // add each tile as soon as its thumbnail is ready (a slow file can't hold up the rest)
+            while (tasks.Count > 0)
             {
+                var finished = await Task.WhenAny(tasks);
+                tasks.Remove(finished);
+                var (file, isVideo, thumb) = await finished;
                 if (token.IsCancellationRequested) return;
                 var tile = CreateThumbnailTile(file, isVideo, thumb);
                 flowLayoutPanelViewer.Controls.Add(tile);
                 index++;
                 progressBarViewer.Value = index;
             }
-
-            if (i + batchSize < files.Count)
-                await Task.Delay(1);
         }
         flowLayoutPanelViewer.AutoScrollPosition = Point.Empty;
         progressBarViewer.Visible = false;
@@ -267,7 +309,7 @@ public partial class ViewerTabControl : UserControl
 
     private static Image? LoadThumbnailImage(string filePath)
     {
-        try { using var img = Image.FromFile(filePath); return img.GetThumbnailImage(132, 176, null, IntPtr.Zero); }
+        try { using var img = Image.FromFile(filePath); return img.GetThumbnailImage(TileWidth, TileHeight, null, IntPtr.Zero); }
         catch { return null; }
     }
 
@@ -277,13 +319,11 @@ public partial class ViewerTabControl : UserControl
         foreach (Panel tile in flowLayoutPanelViewer.Controls.OfType<Panel>())
         {
             var z = _zoomFactor;
-            tile.Size = new Size((int)(180 * z), (int)(240 * z));
+            tile.Size = new Size((int)(TileWidth * z), (int)(TileHeight * z));
             foreach (Control c in tile.Controls)
             {
-                if (c is Label lbl)
-                    lbl.Height = (int)(53 * z);
-                else if (c.Tag is string tag && tag == "vlc")
-                    c.Bounds = tile.DisplayRectangle with { Height = tile.DisplayRectangle.Height - (int)(53 * z) };
+                if (c.Tag is string tag && tag == "vlc")
+                    c.Bounds = tile.DisplayRectangle;
             }
         }
         flowLayoutPanelViewer.ResumeLayout();
@@ -292,22 +332,25 @@ public partial class ViewerTabControl : UserControl
     private Panel CreateThumbnailTile(string filePath, bool isVideo, Image? thumbnail)
     {
         var z = _zoomFactor;
-        var panel = new Panel { Size = new Size((int)(180 * z), (int)(240 * z)), Margin = new Padding(4), BackColor = Color.White, Tag = filePath, Padding = new Padding(3) };
-        var pictureBox = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.Black };
+        var panel = new Panel { Size = new Size((int)(TileWidth * z), (int)(TileHeight * z)), Margin = new Padding(4), BackColor = Color.White, Tag = filePath, Padding = new Padding(3) };
+        var pictureBox = new PictureBox
+        {
+            Dock = DockStyle.Fill,
+            SizeMode = PictureBoxSizeMode.Zoom,
+            BackColor = Color.Black
+        };
 
         if (thumbnail != null)
             pictureBox.Image = thumbnail;
         else
             pictureBox.BackColor = Color.Gray;
 
-        var label = new Label { Text = Path.GetFileName(filePath), Dock = DockStyle.Bottom, Height = (int)(53 * z), AutoSize = false, TextAlign = ContentAlignment.TopCenter, AutoEllipsis = true, Font = new Font("Segoe UI", 8F) };
-
         panel.Controls.Add(pictureBox);
-        panel.Controls.Add(label);
 
         EventHandler selectTile = (s, e) =>
         {
             if (_selectedViewerTile == panel) return;
+            CancelPendingVideoStart();
             // deselect previous
             if (_selectedViewerTile != null)
             {
@@ -320,31 +363,59 @@ public partial class ViewerTabControl : UserControl
             panel.BackColor = Color.Orange;
             if (isVideo)
             {
-                pictureBox.Visible = false;
-                StartVideo(panel, filePath, pictureBox);
+                // keep showing the thumbnail until the VideoView actually covers the tile
+                // (video start is deferred briefly so a double-click can open the OS viewer instead)
+                ScheduleVideoStart(panel, filePath, pictureBox);
             }
         };
         panel.Click += selectTile;
         pictureBox.Click += selectTile;
-        label.Click += selectTile;
 
-        pictureBox.DoubleClick += (s, e) =>
+        // Double-click opens the file in the OS default viewer. The deferred video start above keeps the
+        // tile clickable for this even when the first click of the double-click selected the video.
+        EventHandler openDefault = (s, e) =>
         {
+            if (CancelPendingVideoStart())
+                pictureBox.Visible = true; // playback was cancelled; keep showing the thumbnail
             try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); }
             catch { }
         };
-        label.DoubleClick += (s, e) =>
-        {
-            try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); }
-            catch { }
-        };
-        panel.DoubleClick += (s, e) =>
-        {
-            try { Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true }); }
-            catch { }
-        };
+        pictureBox.DoubleClick += openDefault;
+        panel.DoubleClick += openDefault;
 
         return panel;
+    }
+
+    private void ScheduleVideoStart(Panel panel, string filePath, PictureBox pictureBox)
+    {
+        CancelPendingVideoStart();
+        _pendingVideo = (panel, filePath, pictureBox);
+        _videoStartTimer = new System.Windows.Forms.Timer { Interval = SystemInformation.DoubleClickTime + 50 };
+        _videoStartTimer.Tick += (s, e) =>
+        {
+            _videoStartTimer?.Stop();
+            _videoStartTimer?.Dispose();
+            _videoStartTimer = null;
+            if (_pendingVideo is { } p)
+            {
+                _pendingVideo = null;
+                StartVideo(p.panel, p.filePath, p.pictureBox);
+            }
+        };
+        _videoStartTimer.Start();
+    }
+
+    private bool CancelPendingVideoStart()
+    {
+        bool hadPending = _pendingVideo != null;
+        if (_videoStartTimer != null)
+        {
+            _videoStartTimer.Stop();
+            _videoStartTimer.Dispose();
+            _videoStartTimer = null;
+        }
+        _pendingVideo = null;
+        return hadPending;
     }
 
     private static Image? LoadVideoThumbnail(string filePath)
@@ -352,7 +423,7 @@ public partial class ViewerTabControl : UserControl
         var tmpFile = Path.GetTempFileName() + ".jpg";
         try
         {
-            var ffmpeg = new FFMpegConverter();
+            var ffmpeg = new FFMpegConverter { ExecutionTimeout = TimeSpan.FromSeconds(20) };
             ffmpeg.GetVideoThumbnail(filePath, tmpFile, 0);
             if (File.Exists(tmpFile))
             {
@@ -381,7 +452,7 @@ public partial class ViewerTabControl : UserControl
             {
                 try
                 {
-                    var ffprobe = new FFProbe();
+                    var ffprobe = new FFProbe { ExecutionTimeout = TimeSpan.FromSeconds(20) };
                     var info = ffprobe.GetMediaInfo(filePath);
                     var stream = info.Streams.FirstOrDefault(s => s.CodecType?.ToLower() == "video");
                     if (stream == null) return false;
@@ -424,7 +495,8 @@ public partial class ViewerTabControl : UserControl
                 media.Parse(MediaParseOptions.ParseNetwork);
             });
 
-            player.EndReached += (s, e) => Task.Run(() => player.Play());
+            // looping is handled by the ":input-repeat=65535" media option; an EndReached->Play
+            // handler would race with Stop()/Dispose() and can deadlock.
             player.Play();
         }
         catch
@@ -433,21 +505,73 @@ public partial class ViewerTabControl : UserControl
         }
     }
 
-    private void StopVideo(Panel exceptPanel)
+    /// <summary>Stops/disposes all inline videos (e.g. when leaving the tab or switching folders).</summary>
+    public void StopAllVideos()
+    {
+        StopVideo(null);
+        _selectedViewerTile = null;
+    }
+
+    private void StopVideo(Panel? exceptPanel)
     {
         foreach (Panel tile in flowLayoutPanelViewer.Controls.OfType<Panel>())
         {
             if (tile == exceptPanel) continue;
-            foreach (Control c in tile.Controls.OfType<Control>())
+            foreach (Control c in tile.Controls.OfType<Control>().ToList())
             {
                 if (c.Tag is string tag && tag == "vlc" && c is VideoView vv)
                 {
-                    vv.MediaPlayer?.Stop();
-                    vv.MediaPlayer?.Dispose();
-                    try { tile.Controls.Remove(vv); vv.Dispose(); } catch { }
+                    // Detach first so this video can't be found/stopped again, then stop+dispose the
+                    // player off the UI thread (libvlc Stop() can block/freeze the UI).
+                    var player = vv.MediaPlayer;
+                    vv.MediaPlayer = null;
+                    try { tile.Controls.Remove(vv); } catch { }
+                    try { vv.Dispose(); } catch { }
+                    if (player != null)
+                    {
+                        Task.Run(() =>
+                        {
+                            try { player.Stop(); } catch { }
+                            try { player.Dispose(); } catch { }
+                        });
+                    }
                 }
             }
         }
+    }
+
+    // The VLC video surface is a native window that swallows the mouse wheel. This low-level mouse hook
+    // (invoked on this UI thread) forwards the wheel to the tile pane so it scrolls/zooms over videos too.
+    private IntPtr MouseHookProc(int nCode, IntPtr wParam, IntPtr lParam)
+    {
+        if (nCode >= 0 && wParam == (IntPtr)WmMouseWheel
+            && flowLayoutPanelViewer.IsHandleCreated && flowLayoutPanelViewer.Visible
+            && FindForm() is { } form && Form.ActiveForm == form)
+        {
+            var data = Marshal.PtrToStructure<MsllHookStruct>(lParam);
+            var screenPoint = data.pt;
+            if (flowLayoutPanelViewer.ClientRectangle.Contains(flowLayoutPanelViewer.PointToClient(screenPoint)))
+            {
+                var under = Control.FromHandle(WindowFromPoint(screenPoint));
+                bool overVideo = under == null; // native (VLC) window -> not a managed control
+                for (var c = under; c != null && !overVideo; c = c.Parent)
+                {
+                    if (c.Tag is string tag && tag == "vlc")
+                        overVideo = true;
+                    else if (c == flowLayoutPanelViewer)
+                        break;
+                }
+
+                if (overVideo)
+                {
+                    int delta = unchecked((short)((data.mouseData >> 16) & 0xFFFF));
+                    int lp = (screenPoint.Y << 16) | (screenPoint.X & 0xFFFF);
+                    SendMessage(flowLayoutPanelViewer.Handle, WmMouseWheel, (IntPtr)(delta << 16), (IntPtr)lp);
+                    return (IntPtr)1; // consumed here
+                }
+            }
+        }
+        return CallNextHookEx(_mouseHook, nCode, wParam, lParam);
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)

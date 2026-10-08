@@ -69,6 +69,11 @@ public partial class MainForm : Form
             {
                 _ = _viewerTab.PopulateViewerUserList();
             }
+            else
+            {
+                // leaving the Viewer: stop any inline video that is still playing
+                _viewerTab?.StopAllVideos();
+            }
         };
 
         _historyTab.LoadActionHistory();

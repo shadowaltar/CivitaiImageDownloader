@@ -29,6 +29,9 @@ public class AnimatedImageToMp4Converter
 
     public Action<string>? RaiseMessage { get; set; }
 
+    /// <summary>Cancels the run (in-flight ffmpeg conversions finish, remaining items are skipped).</summary>
+    public CancellationToken CancellationToken { get; set; }
+
     /// <summary>Raised once per run with the number of discovered webp/gif files.</summary>
     public event Action<int>? ProgressStarted;
 
@@ -54,7 +57,7 @@ public class AnimatedImageToMp4Converter
         await Task.Run(() =>
         {
             Parallel.For(0, total,
-                new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
+                new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount, CancellationToken = CancellationToken },
                 i =>
                 {
                     var file = files[i];

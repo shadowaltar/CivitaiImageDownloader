@@ -11,6 +11,14 @@ partial class ViewerTabControl
         base.Dispose(disposing);
         if (disposing)
         {
+            if (_mouseHook != IntPtr.Zero)
+            {
+                UnhookWindowsHookEx(_mouseHook);
+                _mouseHook = IntPtr.Zero;
+            }
+            _videoStartTimer?.Stop();
+            _videoStartTimer?.Dispose();
+            _videoStartTimer = null;
             // dispose LibVLC after the child VideoViews/players have been disposed
             _libVLC?.Dispose();
             _libVLC = null;
@@ -23,6 +31,8 @@ partial class ViewerTabControl
         treeViewNavigator = new TreeView();
         flowLayoutPanelViewer = new FlowLayoutPanel();
         progressBarViewer = new ProgressBar();
+        toolStripViewer = new ToolStrip();
+        btnMultiselect = new ToolStripButton();
         ((System.ComponentModel.ISupportInitialize)splitContainerViewer).BeginInit();
         splitContainerViewer.Panel1.SuspendLayout();
         splitContainerViewer.Panel2.SuspendLayout();
@@ -63,9 +73,27 @@ partial class ViewerTabControl
         progressBarViewer.TabIndex = 1;
         progressBarViewer.Visible = false;
 
+        // 
+        // toolStripViewer
+        // 
+        toolStripViewer.Dock = DockStyle.Top;
+        toolStripViewer.GripStyle = ToolStripGripStyle.Hidden;
+        toolStripViewer.Name = "toolStripViewer";
+        toolStripViewer.Items.AddRange(new ToolStripItem[] { btnMultiselect });
+        toolStripViewer.Size = new Size(1263, 27);
+        toolStripViewer.TabIndex = 2;
+        // 
+        // btnMultiselect
+        // 
+        btnMultiselect.CheckOnClick = true;
+        btnMultiselect.DisplayStyle = ToolStripItemDisplayStyle.Text;
+        btnMultiselect.Name = "btnMultiselect";
+        btnMultiselect.Text = "Multiselect";
+
         splitContainerViewer.Panel1.Controls.Add(treeViewNavigator);
         splitContainerViewer.Panel2.Controls.Add(flowLayoutPanelViewer);
         splitContainerViewer.Panel2.Controls.Add(progressBarViewer);
+        splitContainerViewer.Panel2.Controls.Add(toolStripViewer);
 
         Controls.Add(splitContainerViewer);
         Name = "ViewerTabControl";
@@ -81,4 +109,6 @@ partial class ViewerTabControl
     private TreeView treeViewNavigator;
     private FlowLayoutPanel flowLayoutPanelViewer;
     private ProgressBar progressBarViewer;
+    private ToolStrip toolStripViewer;
+    private ToolStripButton btnMultiselect;
 }

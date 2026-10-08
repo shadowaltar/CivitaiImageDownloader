@@ -18,4 +18,10 @@ internal static class PathUtils
             ? Path.ChangeExtension(path, ".jpg")
             : path;
     }
+
+    /// <summary>True for in-progress compression/enhancement temp files, which should be ignored by viewers/lists.</summary>
+    public static bool IsTempMediaFile(string fileName) =>
+        fileName.StartsWith("compressing_", StringComparison.OrdinalIgnoreCase)
+        || fileName.EndsWith(".enhanced.mp4", StringComparison.OrdinalIgnoreCase)
+        || fileName.EndsWith(".tmp.mp4", StringComparison.OrdinalIgnoreCase);
 }

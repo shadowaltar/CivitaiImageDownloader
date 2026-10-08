@@ -399,7 +399,7 @@ partial class DownloadTabControl
         lblLimit.Name = "lblLimit";
         lblLimit.Size = new Size(50, 24);
         lblLimit.TabIndex = 29;
-        lblLimit.Text = "Limit:";
+        lblLimit.Text = "Limit per download attempt:";
         // 
         // txtLimit
         // 
@@ -408,7 +408,7 @@ partial class DownloadTabControl
         txtLimit.Name = "txtLimit";
         txtLimit.Size = new Size(145, 30);
         txtLimit.TabIndex = 30;
-        txtLimit.Text = "500";
+        txtLimit.Text = "400";
         // 
         // DownloadTabControl
         // 

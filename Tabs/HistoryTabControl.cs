@@ -49,14 +49,16 @@ public partial class HistoryTabControl : UserControl
 
         btnCopyToDownloadTab.Click += (s, e) =>
         {
-            if (listBoxActionHistory.SelectedItem is UsernameHistoryEntry entry)
-                _mediator.CopyUsernamesToDownload(entry.UsernamesConcatenated);
+            var text = GetCopySourceText();
+            if (!string.IsNullOrWhiteSpace(text))
+                _mediator.CopyUsernamesToDownload(text);
         };
 
         btnCopyToVideoTab.Click += (s, e) =>
         {
-            if (listBoxActionHistory.SelectedItem is UsernameHistoryEntry entry)
-                _mediator.CopyUsernamesToVideo(entry.UsernamesConcatenated);
+            var text = GetCopySourceText();
+            if (!string.IsNullOrWhiteSpace(text))
+                _mediator.CopyUsernamesToVideo(text);
         };
 
         btnReloadExistingUserList.Click += (s, e) => _ = PopulateUserFolderStatus();
@@ -81,6 +83,20 @@ public partial class HistoryTabControl : UserControl
         listBoxActionHistory.Items.Clear();
         foreach (var entry in entries)
             listBoxActionHistory.Items.Add(entry);
+    }
+
+    // Usernames to copy: the selected action-history entry, else the selected/current existing-users row.
+    private string? GetCopySourceText()
+    {
+        if (listBoxActionHistory.SelectedItem is UsernameHistoryEntry entry)
+            return entry.UsernamesConcatenated;
+
+        if (dgvUserHistory.SelectedRows.Count > 0)
+        {
+            var cell = dgvUserHistory.SelectedRows[0].Cells[UserName.Index].Value;
+            if (cell != null) return cell.ToString();
+        }
+        return dgvUserHistory.CurrentRow?.Cells[UserName.Index].Value?.ToString();
     }
 
     public async Task PopulateUserFolderStatus()
@@ -158,6 +174,7 @@ public partial class HistoryTabControl : UserControl
                     if (relative.Split(Path.DirectorySeparatorChar).Any(seg => seg.StartsWith("!")))
                         return false;
                 }
+                if (PathUtils.IsTempMediaFile(Path.GetFileName(f))) return false;
                 var ext = Path.GetExtension(f).ToLower();
                 if (ext == ".json" || ext == ".txt") return false;
                 if (Path.GetFileName(f).EndsWith(".json.zip")) return false;

@@ -582,7 +582,9 @@ public class Downloader : IDisposable
 
     private List<string> GetFileNamesAlreadyExist(string folder)
     {
-        return Directory.GetFiles(folder).Where(s => !s.EndsWith(".txt") && !s.EndsWith(".json") && !s.EndsWith(".json.zip"))
+        return Directory.GetFiles(folder)
+            .Where(s => !s.EndsWith(".txt") && !s.EndsWith(".json") && !s.EndsWith(".json.zip")
+                        && !PathUtils.IsTempMediaFile(Path.GetFileName(s)))
             .ToList();
     }
 
